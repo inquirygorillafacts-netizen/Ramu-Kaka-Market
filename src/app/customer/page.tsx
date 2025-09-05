@@ -109,50 +109,50 @@ export default function CustomerPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 bg-background min-h-screen font-body">
+    <div className="p-4 md:p-6 space-y-6">
         <header className="animate-fade-in-down">
-            <div className="bg-card p-4 rounded-xl shadow-sm flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12 border-2 border-primary/20">
-                      <AvatarImage src={userProfile?.photoUrl || ''} alt={userProfile?.name || 'User'} data-ai-hint="person portrait" />
-                      <AvatarFallback className="bg-primary/10 text-primary font-semibold">{getInitials(userProfile?.name || 'U')}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Welcome back,</p>
-                    <h2 className="text-lg font-bold text-foreground">{userProfile?.name || 'Guest'}</h2>
-                  </div>
-              </div>
-              <Sheet onOpenChange={(open) => open && handleClearNotifications()}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative rounded-full w-12 h-12">
-                      <Bell className="h-6 w-6 text-foreground/80"/>
-                      {notifications.length > 0 && (
-                        <span className="absolute top-1 right-1 block h-5 w-5 rounded-full bg-destructive text-white text-xs flex items-center justify-center ring-2 ring-background">
-                            {notifications.length}
-                        </span>
-                      )}
-                  </Button>
-                </SheetTrigger>
-                <SheetContent>
-                  <SheetHeader>
-                    <SheetTitle>Notifications</SheetTitle>
-                    <SheetDescription>
-                      Recent updates on your orders.
-                    </SheetDescription>
-                  </SheetHeader>
-                  <Separator className="my-4"/>
-                  <div className="grid gap-2">
-                    {notifications.length > 0 ? notifications.map(notif => (
-                        <div key={notif.id} className="text-sm p-2 rounded-md hover:bg-muted">
-                            <p>Order <span className="font-semibold">#{notif.id.substring(0, 7)}...</span> is now <span className="font-semibold text-primary">{notif.status}</span>.</p>
-                        </div>
-                    )) : (
-                      <p className="text-sm text-muted-foreground text-center py-4">No new notifications.</p>
-                    )}
-                  </div>
-                </SheetContent>
-              </Sheet>
+          <div className="bg-card p-4 rounded-xl shadow-sm flex justify-between items-center">
+            <div className="flex items-center gap-3">
+                <Avatar className="h-12 w-12 border-2 border-primary/20">
+                    <AvatarImage src={userProfile?.photoUrl || ''} alt={userProfile?.name || 'User'} data-ai-hint="person portrait" />
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">{getInitials(userProfile?.name || 'U')}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm text-muted-foreground">Welcome back,</p>
+                  <h2 className="text-lg font-bold text-foreground">{userProfile?.name || 'Guest'}</h2>
+                </div>
             </div>
+            <Sheet onOpenChange={(open) => !open && handleClearNotifications()}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative rounded-full w-12 h-12">
+                    <Bell className="h-6 w-6 text-foreground/80"/>
+                    {notifications.length > 0 && (
+                      <span className="absolute top-1 right-1 block h-5 w-5 rounded-full bg-destructive text-white text-xs flex items-center justify-center ring-2 ring-background">
+                          {notifications.length}
+                      </span>
+                    )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Notifications</SheetTitle>
+                  <SheetDescription>
+                    Recent updates on your orders.
+                  </SheetDescription>
+                </SheetHeader>
+                <Separator className="my-4"/>
+                <div className="grid gap-2">
+                  {notifications.length > 0 ? notifications.map(notif => (
+                      <div key={notif.id} className="text-sm p-2 rounded-md hover:bg-muted">
+                          <p>Order <span className="font-semibold">#{notif.id.substring(0, 7)}...</span> is now <span className="font-semibold text-primary">{notif.status}</span>.</p>
+                      </div>
+                  )) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">No new notifications.</p>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </header>
 
         <div className="relative animate-fade-in-down" style={{animationDelay: '100ms'}}>
@@ -176,7 +176,7 @@ export default function CustomerPage() {
         </div>
 
         <div className="grid grid-cols-3 gap-3 text-center animate-fade-in-up" style={{animationDelay: '300ms'}}>
-            <Button variant="outline" className="flex flex-col h-24 gap-2 rounded-xl bg-card shadow-sm border-2 border-transparent hover:border-primary hover:-translate-y-1 transition-transform duration-200">
+             <Button variant="outline" className="flex flex-col h-24 gap-2 rounded-xl bg-card shadow-sm border-2 border-transparent hover:border-primary hover:-translate-y-1 transition-transform duration-200">
                 <BadgePercent className="h-8 w-8 text-destructive"/>
                 <span className="text-sm font-semibold">Offers</span>
             </Button>
