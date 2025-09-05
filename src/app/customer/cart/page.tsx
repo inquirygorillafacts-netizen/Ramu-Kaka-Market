@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { addDoc, collection, doc, getDoc } from 'firebase/firestore';
@@ -133,7 +134,7 @@ export default function CartPage() {
     if (orderData.paymentMethod === 'COD') {
         setIsPromoDialogOpen(true);
     } else {
-        await handlePlaceOrderClick();
+        await initiateOnlinePayment();
     }
   }
   
@@ -147,19 +148,12 @@ export default function CartPage() {
             description: "अब आप भी जीतने की दौड़ में शामिल हैं।",
         });
       }
-      
-      // Now the user has to click the main "Place Order" button again to proceed.
   }
   
   const handlePlaceOrderClick = async () => {
-    // This is the final confirmation click
-    if(orderData.paymentMethod === 'COD') {
-      // If user has gone through promo screen and still chose COD, place order directly.
-      // If user hasn't seen promo screen (which they would have if method is COD), show it.
-      if(!isPromoDialogOpen) {
-        setIsPromoDialogOpen(true);
-        return;
-      }
+    if(placingOrder) return;
+
+    if (orderData.paymentMethod === 'COD') {
       await saveOrderToFirebase('COD');
     } else {
       await initiateOnlinePayment();
@@ -195,6 +189,16 @@ export default function CartPage() {
             },
             theme: {
                 color: "#4CAF50"
+            },
+            modal: {
+                ondismiss: function() {
+                    setPlacingOrder(false);
+                    toast({
+                        variant: 'destructive',
+                        title: 'Payment Cancelled',
+                        description: 'You cancelled the payment process.'
+                    })
+                }
             }
         };
         const rzp = new Razorpay(options);
@@ -323,16 +327,10 @@ export default function CartPage() {
 
             <Dialog open={isCheckoutDialogOpen} onOpenChange={setIsCheckoutDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={() => {
-                  if (orderData.paymentMethod === 'Online') {
-                     initiateOnlinePayment();
-                  } else {
-                     setIsCheckoutDialogOpen(true);
-                  }
-                }}>
+                 <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={() => setIsCheckoutDialogOpen(true)}>
                     {placingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShoppingBasket className="mr-2 h-5 w-5"/>}
-                    {placingOrder ? 'Placing Order...' : 'Place Order'}
-                </Button>
+                    {placingOrder ? 'Placing Order...' : 'Proceed to Checkout'}
+                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -395,6 +393,11 @@ export default function CartPage() {
               </DialogContent>
             </Dialog>
 
+             <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={handlePlaceOrderClick}>
+                {placingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShoppingBasket className="mr-2 h-5 w-5"/>}
+                {placingOrder ? 'Placing Order...' : 'Place Order'}
+            </Button>
+
             <AlertDialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
                 <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
@@ -431,5 +434,3 @@ export default function CartPage() {
   );
 
 }
-
-    
