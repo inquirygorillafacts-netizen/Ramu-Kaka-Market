@@ -117,7 +117,7 @@ export default function CustomerPage() {
                     <AvatarFallback>{getInitials(userProfile?.name || 'U')}</AvatarFallback>
                 </Avatar>
             </div>
-            <h1 className="font-bold text-lg font-headline text-primary">Ramu Kaka</h1>
+            <h1 className="font-bold text-lg font-headline text-primary">Ramu Kaka Market</h1>
             <Button variant="ghost" size="icon">
                 <Bell className="h-6 w-6"/>
             </Button>
@@ -137,7 +137,7 @@ export default function CustomerPage() {
         {/* Top Banner */}
         <div className="aspect-[2/1] bg-card rounded-xl overflow-hidden shadow-sm">
             {getBannerUrl('banner1') ? (
-                <Image src={getBannerUrl('banner1')!} alt="Promotional Banner 1" fill className="object-cover"/>
+                <Image src={getBannerUrl('banner1')!} alt="Promotional Banner 1" width={600} height={300} className="object-cover w-full h-full"/>
             ) : (
                 <div className="flex items-center justify-center h-full bg-muted/50 text-muted-foreground">Banner 1</div>
             )}
@@ -162,7 +162,7 @@ export default function CustomerPage() {
         {/* Bottom Banner */}
          <div className="aspect-[2/1] bg-card rounded-xl overflow-hidden shadow-sm">
             {getBannerUrl('banner2') ? (
-                <Image src={getBannerUrl('banner2')!} alt="Promotional Banner 2" fill className="object-cover"/>
+                <Image src={getBannerUrl('banner2')!} alt="Promotional Banner 2" width={600} height={300} className="object-cover w-full h-full"/>
             ) : (
                 <div className="flex items-center justify-center h-full bg-muted/50 text-muted-foreground">Banner 2</div>
             )}
