@@ -232,9 +232,11 @@ export default function CustomerPage() {
                 <BadgePercent className="h-8 w-8 text-destructive"/>
                 <span className="text-sm font-semibold">Offers</span>
             </Button>
-             <Button variant="outline" className="flex flex-col h-24 gap-2 rounded-xl bg-card shadow-sm border-2 border-transparent hover:border-primary hover:-translate-y-1 transition-transform duration-200">
-                <HelpCircle className="h-8 w-8 text-primary"/>
-                <span className="text-sm font-semibold">Help</span>
+            <Button asChild variant="outline" className="flex flex-col h-24 gap-2 rounded-xl bg-card shadow-sm border-2 border-transparent hover:border-primary hover:-translate-y-1 transition-transform duration-200">
+                <Link href="/customer/help">
+                    <HelpCircle className="h-8 w-8 text-primary"/>
+                    <span className="text-sm font-semibold">Help</span>
+                </Link>
             </Button>
              <Button variant="outline" className="flex flex-col h-24 gap-2 rounded-xl bg-card shadow-sm border-2 border-transparent hover:border-primary hover:-translate-y-1 transition-transform duration-200">
                 <GitCompareArrows className="h-8 w-8 text-green-600"/>
