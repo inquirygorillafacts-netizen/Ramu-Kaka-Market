@@ -111,7 +111,7 @@ export default function AuthPage() {
         email: formData.email,
         mobile: formData.mobile,
         photoUrl: photoUrl,
-        roles: userRoles, // Default role
+        roles: userRoles,
       });
 
       localStorage.setItem('ramukaka_user', JSON.stringify({
@@ -125,7 +125,7 @@ export default function AuthPage() {
         title: 'Success!',
         description: 'You have successfully registered.',
       });
-      router.push('/customer');
+      router.push('/role-selection');
 
     } catch (error: any) {
        if (error.code === 'auth/email-already-in-use') {
@@ -177,11 +177,8 @@ export default function AuthPage() {
           description: 'You have successfully logged in.',
         });
 
-        if (userRoles.admin) {
-          router.push('/admin');
-        } else {
-          router.push('/customer');
-        }
+        router.push('/role-selection');
+
       } else {
         throw new Error("User data not found in database.");
       }
@@ -227,7 +224,10 @@ export default function AuthPage() {
                                 {photoPreview ? (
                                     <Image src={photoPreview} alt="Preview" width={96} height={96} className="object-cover w-full h-full" />
                                 ) : (
-                                    <ImageIcon className="w-10 h-10 text-muted-foreground/80 transition-colors group-hover:text-primary" />
+                                    <div className="flex flex-col items-center">
+                                      <Camera className="w-8 h-8 text-muted-foreground/80 transition-colors group-hover:text-primary" />
+                                      <span className="text-xs mt-1 text-muted-foreground">Add Photo</span>
+                                    </div>
                                 )}
                             </div>
                             <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">

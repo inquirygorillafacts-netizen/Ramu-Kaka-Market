@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, LayoutDashboard, Settings, ShoppingCart, Users, Package, LogOut } from "lucide-react";
+import { Home, LayoutDashboard, Settings, ShoppingCart, Users, Package, LogOut, Truck } from "lucide-react";
 import {
   SidebarProvider,
   Sidebar,
@@ -63,13 +63,7 @@ export default function DashboardLayout({
 
           if (!userRoles.includes(currentPanel)) {
               // If user tries to access a panel they don't have a role for, redirect them
-              if (userRoles.includes('admin')) {
-                router.push('/admin');
-              } else if (userRoles.includes('delivery')) {
-                router.push('/delivery');
-              } else {
-                router.push('/customer');
-              }
+              router.push('/role-selection');
           }
 
         } else {
@@ -152,12 +146,11 @@ export default function DashboardLayout({
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-               {/* Placeholder for Delivery Panel */}
               {canSeeDelivery && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === "/delivery"}>
                     <Link href="/delivery">
-                      <Users />
+                      <Truck />
                       <span className="truncate">Delivery Panel</span>
                     </Link>
                   </SidebarMenuButton>
@@ -187,9 +180,9 @@ export default function DashboardLayout({
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/">
+                  <Link href="/role-selection">
                     <Home />
-                    <span>Back to Home</span>
+                    <span>Back to Gates</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

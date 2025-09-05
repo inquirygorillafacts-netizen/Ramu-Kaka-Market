@@ -15,9 +15,10 @@ export default function Home() {
     const handleAnimationComplete = () => {
       onAuthStateChanged(auth, (user) => {
         if (user) {
-          // In a real app, you might want to check roles here
-          router.push('/customer');
+          // User is logged in, send to role selection
+          router.push('/role-selection');
         } else {
+          // User is not logged in, send to auth page
           router.push('/auth');
         }
       });
