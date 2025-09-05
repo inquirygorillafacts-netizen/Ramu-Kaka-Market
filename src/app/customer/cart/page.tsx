@@ -154,6 +154,12 @@ export default function CartPage() {
   const handlePlaceOrderClick = async () => {
     // This is the final confirmation click
     if(orderData.paymentMethod === 'COD') {
+      // If user has gone through promo screen and still chose COD, place order directly.
+      // If user hasn't seen promo screen (which they would have if method is COD), show it.
+      if(!isPromoDialogOpen) {
+        setIsPromoDialogOpen(true);
+        return;
+      }
       await saveOrderToFirebase('COD');
     } else {
       await initiateOnlinePayment();
@@ -318,8 +324,8 @@ export default function CartPage() {
             <Dialog open={isCheckoutDialogOpen} onOpenChange={setIsCheckoutDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={() => {
-                  if (orderData.paymentMethod === 'Online' && !isPromoDialogOpen) {
-                     handlePlaceOrderClick();
+                  if (orderData.paymentMethod === 'Online') {
+                     initiateOnlinePayment();
                   } else {
                      setIsCheckoutDialogOpen(true);
                   }
@@ -399,8 +405,8 @@ export default function CartPage() {
                         </div>
                         <AlertDialogTitle className="text-center text-xl font-headline">एक और मौका, इनाम जीतने का!</AlertDialogTitle>
                         <AlertDialogDescription className="text-center text-base/relaxed text-muted-foreground space-y-2">
-                          <div>ऑनलाइन पेमेंट करने वाले टॉप 10 लोगों को मिलेगा फ्री रिचार्ज, ओर जो सबसे नंबर one आएगा उसे मिलेगा रिचार्ज के साथ - साथ 501 रूपीए का इनाम भी।</div>
-                          <div>तो अब से करो बुकिंग ऑनलाइन क्योंकि पेसे तो वो ही लगेंगे लेकिन इनाम मे भी आपका नाम आए जाएगा।</div>
+                          <span>ऑनलाइन पेमेंट करने वाले टॉप 10 लोगों को मिलेगा फ्री रिचार्ज, ओर जो सबसे नंबर one आएगा उसे मिलेगा रिचार्ज के साथ - साथ 501 रूपीए का इनाम भी।</span>
+                          <span>तो अब से करो बुकिंग ऑनलाइन क्योंकि पेसे तो वो ही लगेंगे लेकिन इनाम मे भी आपका नाम आए जाएगा।</span>
                         </AlertDialogDescription>
                          <div className="text-center text-sm text-muted-foreground pt-2">
                            <span>कुछ भी सवाल है तो अभी कॉल करो</span>
