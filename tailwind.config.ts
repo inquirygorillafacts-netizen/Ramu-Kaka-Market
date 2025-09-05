@@ -126,7 +126,7 @@ export default {
         'fade-in': 'fade-in 1s ease-in-out forwards',
         'fade-out': 'fade-out 3.5s ease-out forwards',
         'fade-in-up': 'fade-in-up 0.5s ease-out forwards',
-        'fade-in-down': 'fade-in-down 0.8s ease-in-out forwards',
+        'fade-in-down': 'fade-in-down 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards',
         'draw-line': 'draw-line 1s ease-out forwards',
         'place-item': 'place-item 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
         'place-item-bounce': 'place-item-bounce 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',

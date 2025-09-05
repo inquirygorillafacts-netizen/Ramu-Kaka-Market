@@ -4,6 +4,7 @@ export default function SplashScreen({ onAnimationComplete }: { onAnimationCompl
   return (
     <div 
       className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground overflow-hidden font-sans animate-fade-out"
+      style={{ animationDuration: '3.5s' }}
       onAnimationEnd={onAnimationComplete}
     >
       <div className="relative flex flex-col items-center text-center">
