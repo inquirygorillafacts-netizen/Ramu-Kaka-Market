@@ -260,21 +260,26 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
           
           <div className="space-y-2">
             <Label htmlFor="photo-upload">Product Images (up to 5)</Label>
-            <Input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoChange} disabled={isSaving || photoFiles.length >= 5} multiple />
-          </div>
-          
-          {photoPreviews.length > 0 && (
+            <Input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoChange} disabled={isSaving || photoFiles.length >= 5} multiple className="sr-only" />
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-              {photoPreviews.map((src, index) => (
-                <div key={index} className="relative aspect-square">
-                  <NextImage src={src} alt={`Product Preview ${index + 1}`} layout="fill" className="object-cover rounded-md" />
-                  <button onClick={() => removePhoto(index)} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5" disabled={isSaving}>
-                      <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
+                {[...Array(5)].map((_, i) => (
+                    <div key={i} className="relative aspect-square">
+                        {photoPreviews[i] ? (
+                            <>
+                                <NextImage src={photoPreviews[i]} alt={`Preview ${i+1}`} layout="fill" className="object-cover rounded-md" />
+                                <button onClick={() => removePhoto(i)} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5" disabled={isSaving}>
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </>
+                        ) : (
+                            <Label htmlFor="photo-upload" className={`flex items-center justify-center w-full h-full border-2 border-dashed rounded-md cursor-pointer ${isSaving || photoFiles.length >= 5 ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary'}`}>
+                                <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                            </Label>
+                        )}
+                    </div>
+                ))}
             </div>
-          )}
+          </div>
 
         </div>
         <DialogFooter>
