@@ -1,4 +1,5 @@
 
+
 export interface UserProfile {
     id: string;
     name: string;
@@ -12,12 +13,15 @@ export interface UserProfile {
     count: number;
   }
 
+  export type ProductCategory = 'Vegetables' | 'Fruits' | 'Grocery' | 'Cafe';
+
   export interface Product {
     id: string;
     name: string;
     price: number;
     images: string[];
     unit: 'kg' | 'gram' | 'piece' | 'litre';
+    category: ProductCategory;
     keywords?: string[];
     discountPrice?: number | null;
     rating?: Rating;
