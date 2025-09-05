@@ -13,10 +13,11 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { UserProfile } from "@/app/(panels)/admin/RoleManager";
 
 export default function DeliveryPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [deliveryId, setDeliveryId] = useState<string | null>(null);
+  const [deliveryProfile, setDeliveryProfile] = useState<UserProfile | null>(null);
   const [tasks, setTasks] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export default function DeliveryPage() {
         setCurrentUser(user);
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists() && userDoc.data().roles.delivery) {
-          setDeliveryId(user.uid);
+          setDeliveryProfile({id: user.uid, ...userDoc.data()} as UserProfile);
         } else {
           setError("You do not have delivery permissions.");
           setLoading(false);
@@ -43,11 +44,11 @@ export default function DeliveryPage() {
   }, []);
 
   useEffect(() => {
-    if (!deliveryId) return;
+    if (!deliveryProfile) return;
     setLoading(true);
     const q = query(
       collection(db, 'orders'),
-      where('deliveryId', '==', deliveryId),
+      where('deliveryId', '==', deliveryProfile.id),
       orderBy('createdAt', 'desc')
     );
 
@@ -70,7 +71,7 @@ export default function DeliveryPage() {
 
     return () => unsubscribe();
 
-  }, [deliveryId]);
+  }, [deliveryProfile]);
 
   const handleStatusUpdate = async (orderId: string, status: string) => {
     try {
