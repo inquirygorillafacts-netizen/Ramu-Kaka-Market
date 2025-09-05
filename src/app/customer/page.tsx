@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -14,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Link from 'next/link';
 
 export default function CustomerPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -92,7 +94,9 @@ export default function CustomerPage() {
       localStorage.setItem('ramukaka_cart', JSON.stringify(newCart));
   }
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
+      e.preventDefault(); // Stop navigation when clicking the button
+      e.stopPropagation();
       const newCart = [...cart];
       const existingItem = newCart.find(item => item.id === product.id);
       if (existingItem) {
@@ -107,7 +111,9 @@ export default function CustomerPage() {
       })
   }
 
-  const toggleFavorite = (product: Product) => {
+  const toggleFavorite = (e: React.MouseEvent, product: Product) => {
+      e.preventDefault(); // Stop navigation when clicking the button
+      e.stopPropagation();
       const currentFavorites: Product[] = JSON.parse(localStorage.getItem('ramukaka_favorites') || '[]');
       const isFavorite = favorites.includes(product.id);
       let updatedFavorites: Product[];
@@ -255,9 +261,10 @@ export default function CustomerPage() {
             ): filteredProducts.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {filteredProducts.map(product => (
-                        <div key={product.id} className="relative bg-card rounded-xl shadow-sm overflow-hidden group border">
+                       <Link key={product.id} href={`/customer/product/${product.id}`} className="block group">
+                        <div className="relative bg-card rounded-xl shadow-sm overflow-hidden border h-full flex flex-col">
                             <button 
-                                onClick={() => toggleFavorite(product)}
+                                onClick={(e) => toggleFavorite(e, product)}
                                 className="absolute top-2 right-2 z-10 p-1.5 bg-background/70 backdrop-blur-sm rounded-full"
                             >
                                 <Heart className={`w-5 h-5 transition-colors ${favorites.includes(product.id) ? 'text-destructive fill-destructive' : 'text-muted-foreground'}`}/>
@@ -273,10 +280,10 @@ export default function CustomerPage() {
                                 />
                             </div>
 
-                            <div className="p-3 space-y-2">
-                                <h3 className="font-semibold text-sm truncate">{product.name}</h3>
+                            <div className="p-3 space-y-2 flex flex-col flex-grow">
+                                <h3 className="font-semibold text-sm truncate flex-grow">{product.name}</h3>
                                 <p className="text-xs text-muted-foreground">per {product.unitQuantity} {product.unit}</p>
-                                <div className="flex justify-between items-center">
+                                <div className="flex justify-between items-center pt-1">
                                     <div className="font-bold text-base">
                                      {product.discountPrice ? (
                                         <div className="flex items-baseline gap-1.5">
@@ -286,12 +293,13 @@ export default function CustomerPage() {
                                      ) : `₹${product.price.toFixed(2)}`}
                                     </div>
                                 </div>
-                                 <Button className="w-full h-9" onClick={() => handleAddToCart(product)}>
+                                 <Button className="w-full h-9" onClick={(e) => handleAddToCart(e, product)}>
                                    <ShoppingBasket className="w-4 h-4 mr-2"/>
                                    Add
                                  </Button>
                             </div>
                         </div>
+                       </Link>
                     ))}
                 </div>
             ) : (
