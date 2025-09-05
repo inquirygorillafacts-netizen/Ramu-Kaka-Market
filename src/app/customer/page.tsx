@@ -14,17 +14,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 
-interface Banner {
-  id: string;
-  imageUrl: string;
-  active: boolean;
-}
-
 export default function CustomerPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [banners, setBanners] = useState<Banner[]>([]);
+  const [banners, setBanners] = useState<{ id: string; imageUrl: string; active: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -55,7 +49,7 @@ export default function CustomerPage() {
 
     const bannersQuery = query(collection(db, 'banners'), where('active', '==', true));
     const unsubscribeBanners = onSnapshot(bannersQuery, (snapshot) => {
-        setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
+        setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as { id: string; imageUrl: string; active: boolean })));
     });
 
     const savedCart = localStorage.getItem('ramukaka_cart');
