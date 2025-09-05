@@ -4,42 +4,80 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // =================================
+    // Helper Functions (सहायक फ़ंक्शन)
+    // =================================
+
+    // Checks if the user is authenticated
     function isAuth() {
       return request.auth != null;
     }
 
+    // Checks if the user is accessing their own document
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    // Checks if the logged-in user is an admin
+    function isAdmin() {
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin is map;
+    }
+
+    // Checks if the logged-in user is a delivery person
+    function isDeliveryPerson() {
+        return isAuth() && 'delivery' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles;
+    }
+
+    // =================================
+    // Rules for the 'users' collection
+    // =================================
+    match /users/{userId} {
+      // READ: Admins can read any user doc. Users can only read their own.
+      allow read: if isOwner(userId) || isAdmin();
+
+      // CREATE: Any authenticated user can create a profile,
+      // but they cannot make themselves an admin unless they already are one.
+      allow create: if isAuth() && (!('admin' in request.resource.data.roles) || isAdmin());
+
+      // UPDATE: A user can update their profile as long as they don't change their roles.
+      // Only an admin can update any user's roles.
+      allow update: if (isOwner(userId) && request.resource.data.roles == resource.data.roles) || isAdmin();
+
+      // DELETE: A user can only delete their own profile.
+      allow delete: if isOwner(userId);
     }
     
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin == true;
-    }
-
-    // User rules
-    match /users/{userId} {
-      allow read: if isAuth();
-      // Allow user creation for anyone authenticated
-      allow create: if isAuth();
-      // Allow users to update their own data, but NOT their roles
-      // Allow admins to update anything
-      allow update: if (isOwner(userId) && request.resource.data.roles == resource.data.roles) || isAdmin();
-    }
-
-    // Product rules
+    // =================================
+    // Rules for the 'products' collection
+    // =================================
     match /products/{productId} {
+      // READ: Any authenticated user can read the product list.
       allow read: if isAuth();
-      allow create, update, delete: if isAdmin();
-    }
 
-    // Order rules
+      // WRITE (Create, Update, Delete): Only admins can manage products.
+      allow write: if isAdmin();
+    }
+    
+    // =================================
+    // Rules for the 'orders' collection
+    // =================================
     match /orders/{orderId} {
-      allow read, update: if isAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.delivery == true;
+      // READ: Admins can read any order.
+      // Customers can read their own orders.
+      // Delivery personnel can read orders assigned to them.
+      allow read: if isAdmin() || 
+                   (isAuth() && resource.data.customerId == request.auth.uid) ||
+                   (isDeliveryPerson() && resource.data.deliveryId == request.auth.uid);
+                   
+      // CREATE: Only authenticated users (customers) can create orders.
       allow create: if isAuth();
-      // Customers can only access their own orders
-      // `list` is needed for queries
-      allow list: if isAdmin() || (isAuth() && request.query.customerId == request.auth.uid);
+
+      // UPDATE: Admins can update any order (e.g., assign delivery).
+      // Delivery personnel can only update the status of their assigned orders.
+      allow update: if isAdmin() || (isDeliveryPerson() && resource.data.deliveryId == request.auth.uid && request.resource.data.keys().hasOnly(['status']));
+
+      // DELETE: Only admins can delete orders.
+      allow delete: if isAdmin();
     }
   }
 }
