@@ -1,51 +1,33 @@
 rules_version = '2';
+
+// Helper function to check if a user has a specific role
+function hasRole(role) {
+  return request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles[role] != null;
+}
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user has a specific role
-    function hasRole(role) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles[role] != null;
-    }
-
-    // Rules for the 'users' collection
+    // Users can only read/update their own profile.
+    // Admins can read any profile (for user listing in admin panel).
+    // Anyone authenticated can create their own user document.
     match /users/{userId} {
-      // ANY authenticated user can CREATE their own user document
-      allow create: if request.auth != null;
-
-      // Users can READ their own document.
-      // Admins can READ any user document.
-      allow read: if request.auth != null && (request.auth.uid == userId || hasRole('admin'));
-
-      // Users can UPDATE their own document.
-      // Admins can UPDATE any user document (to change roles).
-      allow update: if request.auth != null && (request.auth.uid == userId || hasRole('admin'));
-
-      // Only admins can DELETE users.
-      allow delete: if request.auth != null && hasRole('admin');
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Placeholder rules for a future 'orders' collection
+    // Placeholder for future orders collection
+    // Customer can read/create their own orders.
+    // Delivery person can read/update orders assigned to them.
+    // Admin can read/write all orders.
     match /orders/{orderId} {
-      // A customer can read their own orders.
-      // A delivery person can read orders assigned to them.
-      // An admin can read any order.
-      allow read: if request.auth != null && (
-        resource.data.customerId == request.auth.uid ||
-        (hasRole('delivery') && resource.data.assignedTo == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.delivery.deliveryId) ||
-        hasRole('admin')
-      );
-
-      // Customers can create their own orders.
-      allow create: if request.auth != null && request.resource.data.customerId == request.auth.uid;
-
-      // Admins or the assigned delivery person can update orders (e.g., change status).
-      allow update: if request.auth != null && (
-        hasRole('admin') ||
-        (hasRole('delivery') && resource.data.assignedTo == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.delivery.deliveryId)
-      );
-
-      // Default deny all other actions
-      allow delete: if false;
+      allow read: if (request.auth != null && resource.data.customerId == request.auth.uid) || 
+                       (hasRole('delivery') && resource.data.assignedTo == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.delivery.deliveryId) ||
+                       hasRole('admin');
+      allow create: if request.auth != null;
+      allow update: if hasRole('delivery') || hasRole('admin');
+      allow delete: if hasRole('admin');
     }
   }
 }
