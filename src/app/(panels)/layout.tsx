@@ -23,6 +23,7 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 interface UserProfile {
   uid: string;
@@ -62,24 +63,27 @@ export default function DashboardLayout({
           const userRoles = Object.keys(profile.roles);
 
           if (!userRoles.includes(currentPanel)) {
-              // If user tries to access a panel they don't have a role for, redirect them
+              toast({
+                variant: 'destructive',
+                title: 'Access Denied',
+                description: `You do not have permission to access the ${currentPanel} panel.`
+              })
               router.push('/role-selection');
+          } else {
+            setLoading(false);
           }
 
         } else {
-          // No user data in Firestore, something is wrong
           await signOut(auth);
           router.push('/auth');
         }
       } else {
-        // Not logged in
         router.push('/auth');
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [pathname, router]);
+  }, [pathname, router, toast]);
 
   const handleLogout = async () => {
     try {
@@ -98,8 +102,11 @@ export default function DashboardLayout({
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p>Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="text-muted-foreground">Verifying access...</span>
+        </div>
       </div>
     );
   }
@@ -167,7 +174,7 @@ export default function DashboardLayout({
                 </Avatar>
                 <div className="flex flex-col group-data-[collapsible=icon]:hidden">
                   <span className="font-semibold text-sm">{user.name}</span>
-                  <span className="text-xs text-muted-foreground">{Object.keys(user.roles).join(', ')}</span>
+                  <span className="text-xs text-muted-foreground">{Object.keys(user.roles).map(r => r.charAt(0).toUpperCase() + r.slice(1)).join(', ')}</span>
                 </div>
               </div>
             )}
@@ -202,7 +209,7 @@ export default function DashboardLayout({
                 <span className="sr-only">Settings</span>
               </Button>
           </header>
-          <main className="flex-1 p-4 md:p-6 animate-fade-in">{children}</main>
+          <main className="flex-1 p-4 md:p-6 animate-fade-in-up">{children}</main>
         </SidebarInset>
       </div>
     </SidebarProvider>
