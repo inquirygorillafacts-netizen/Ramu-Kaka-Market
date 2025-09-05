@@ -118,48 +118,49 @@ export default function CartPage() {
     }, 0);
   };
   
-  const handleCheckout = async () => {
-    if (!currentUser) {
-        toast({ variant: 'destructive', title: 'Not Logged In', description: 'You must be logged in to place an order.' });
-        return;
-    }
+  const handleProceedClick = async () => {
+      if (placingOrder) return;
 
+      if (!currentUser) {
+          toast({ variant: 'destructive', title: 'Not Logged In', description: 'You must be logged in to place an order.' });
+          return;
+      }
+      
+      // If address details are not filled, open the dialog first
+      if (!orderData.name || !orderData.mobile || !orderData.address || !orderData.pincode) {
+          setIsCheckoutDialogOpen(true);
+          return;
+      }
+
+      // If details are filled, proceed based on payment method
+      if (orderData.paymentMethod === 'COD') {
+          setIsPromoDialogOpen(true);
+      } else {
+          await initiateOnlinePayment();
+      }
+  };
+
+  const handleConfirmDetails = () => {
     if (!orderData.name || !orderData.mobile || !orderData.address || !orderData.pincode) {
         toast({ variant: 'destructive', title: 'Information Missing', description: 'Please fill all address and contact details.' });
         return;
     }
-    
-    setIsCheckoutDialogOpen(false); 
-
-    if (orderData.paymentMethod === 'COD') {
-        setIsPromoDialogOpen(true);
-    } else {
-        await initiateOnlinePayment();
-    }
+    setIsCheckoutDialogOpen(false);
+    // Now the user will click the main button again to proceed.
   }
-  
-  const handlePromoChoice = (choice: 'COD' | 'Online') => {
-      setIsPromoDialogOpen(false);
-      setOrderData(prev => ({...prev, paymentMethod: choice}));
 
-      if(choice === 'Online') {
-        toast({
-            title: 'बहुत बढ़िया!',
-            description: "अब आप भी जीतने की दौड़ में शामिल हैं।",
-        });
+  const handlePromoChoice = async (choice: 'COD' | 'Online') => {
+      setIsPromoDialogOpen(false);
+      if (choice === 'Online') {
+          toast({
+              title: 'बहुत बढ़िया!',
+              description: "अब आप भी जीतने की दौड़ में शामिल हैं।",
+          });
+          await initiateOnlinePayment();
+      } else {
+          await saveOrderToFirebase('COD');
       }
   }
-  
-  const handlePlaceOrderClick = async () => {
-    if(placingOrder) return;
-
-    if (orderData.paymentMethod === 'COD') {
-      await saveOrderToFirebase('COD');
-    } else {
-      await initiateOnlinePayment();
-    }
-  }
-
 
   const initiateOnlinePayment = async () => {
     if (!currentUser) return;
@@ -213,7 +214,6 @@ export default function CartPage() {
         setPlacingOrder(false);
     }
   }
-
 
   const saveOrderToFirebase = async (paymentMethod: 'COD' | 'Online', paymentId?: string) => {
     if(!currentUser) return;
@@ -327,7 +327,7 @@ export default function CartPage() {
 
             <Dialog open={isCheckoutDialogOpen} onOpenChange={setIsCheckoutDialogOpen}>
               <DialogTrigger asChild>
-                 <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={() => setIsCheckoutDialogOpen(true)}>
+                 <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={handleProceedClick}>
                     {placingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShoppingBasket className="mr-2 h-5 w-5"/>}
                     {placingOrder ? 'Placing Order...' : 'Proceed to Checkout'}
                  </Button>
@@ -386,17 +386,12 @@ export default function CartPage() {
                 
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)} disabled={placingOrder}>Go Back</Button>
-                  <Button onClick={handleCheckout} disabled={placingOrder}>
+                  <Button onClick={handleConfirmDetails} disabled={placingOrder}>
                     Confirm Details
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-
-             <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={handlePlaceOrderClick}>
-                {placingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShoppingBasket className="mr-2 h-5 w-5"/>}
-                {placingOrder ? 'Placing Order...' : 'Place Order'}
-            </Button>
 
             <AlertDialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
                 <AlertDialogContent className="max-w-md">
