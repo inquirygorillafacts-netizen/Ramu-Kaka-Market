@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -21,6 +20,7 @@ import NextImage from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { ProductCategory } from '@/lib/types';
 
 const IMGBB_API_KEY = '43d1267c74925ed8af33485644bfaa6b';
 
@@ -32,6 +32,7 @@ interface ProductFormProps {
 
 export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: ProductFormProps) {
   const [name, setName] = useState('');
+  const [category, setCategory] = useState<ProductCategory | ''>('');
   const [unit, setUnit] = useState('');
   const [keywords, setKeywords] = useState<string[]>([]);
   const [currentKeyword, setCurrentKeyword] = useState('');
@@ -46,6 +47,7 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
 
   const resetForm = () => {
     setName('');
+    setCategory('');
     setUnit('');
     setKeywords([]);
     setCurrentKeyword('');
@@ -72,7 +74,12 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
 
   const removePhoto = (index: number) => {
     setPhotoFiles(prev => prev.filter((_, i) => i !== index));
-    setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+    setPhotoPreviews(prev => {
+        const newPreviews = [...prev];
+        URL.revokeObjectURL(newPreviews[index]); // Clean up object URL
+        newPreviews.splice(index, 1);
+        return newPreviews;
+    });
   }
   
   const handleKeywordKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -113,7 +120,7 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
   };
 
   const handleSubmit = async () => {
-    if (!name || !price || !unit || photoFiles.length === 0) {
+    if (!name || !price || !unit || !category || photoFiles.length === 0) {
       toast({ variant: 'destructive', title: 'Missing fields', description: 'Please fill out all required fields and select at least one image.' });
       return;
     }
@@ -134,6 +141,7 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
     try {
       await addDoc(collection(db, 'products'), {
         name: name,
+        category: category,
         unit: unit,
         keywords: keywords,
         price: parseFloat(price),
@@ -171,12 +179,27 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
         </DialogHeader>
         <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
           
+          <div className="space-y-2">
+            <Label htmlFor="name">Product Name</Label>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSaving} placeholder="e.g. Fresh Apples"/>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Product Name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSaving} placeholder="e.g. Fresh Apples"/>
+              <Label htmlFor="category">Category</Label>
+              <Select value={category} onValueChange={(value) => setCategory(value as ProductCategory)} disabled={isSaving}>
+                <SelectTrigger id="category">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Vegetables">Vegetables</SelectItem>
+                  <SelectItem value="Fruits">Fruits</SelectItem>
+                  <SelectItem value="Grocery">Grocery</SelectItem>
+                  <SelectItem value="Cafe">Cafe</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-2">
+             <div className="space-y-2">
               <Label htmlFor="unit">Unit</Label>
               <Select value={unit} onValueChange={setUnit} disabled={isSaving}>
                 <SelectTrigger id="unit">
@@ -241,21 +264,30 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
           
           <div className="space-y-2">
             <Label htmlFor="photo-upload">Product Images (up to 5)</Label>
-            <Input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoChange} disabled={isSaving || photoFiles.length >= 5} multiple />
-          </div>
-          
-          {photoPreviews.length > 0 && (
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-              {photoPreviews.map((src, index) => (
-                <div key={index} className="relative aspect-square">
-                  <NextImage src={src} alt={`Product Preview ${index + 1}`} layout="fill" className="object-cover rounded-md" />
-                  <button onClick={() => removePhoto(index)} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5" disabled={isSaving}>
-                      <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
+            <div className="relative">
+              <Input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoChange} disabled={isSaving || photoFiles.length >= 5} multiple className="sr-only" />
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                  {[...Array(5)].map((_, i) => (
+                      <div key={i} className="relative aspect-square">
+                          {photoPreviews[i] ? (
+                              <>
+                                  <NextImage src={photoPreviews[i]} alt={`Preview ${i+1}`} fill={true} className="object-cover rounded-md" />
+                                  {!isSaving && (
+                                    <button onClick={() => removePhoto(i)} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5">
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                  )}
+                              </>
+                          ) : (
+                              <Label htmlFor="photo-upload" className={`flex items-center justify-center w-full h-full border-2 border-dashed rounded-md ${isSaving || photoFiles.length >= 5 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-primary'}`}>
+                                  <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                              </Label>
+                          )}
+                      </div>
+                  ))}
+              </div>
             </div>
-          )}
+          </div>
 
         </div>
         <DialogFooter>

@@ -297,6 +297,7 @@ export default function AdminPage() {
                   <TableRow>
                     <TableHead>Image</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>Category</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>Rating</TableHead>
                     <TableHead>Keywords</TableHead>
@@ -311,6 +312,7 @@ export default function AdminPage() {
                         ) : <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center text-muted-foreground">?</div> }
                       </TableCell>
                       <TableCell className="font-medium">{product.name} <span className="text-muted-foreground text-xs">({product.unit})</span></TableCell>
+                      <TableCell><Badge variant="outline">{product.category}</Badge></TableCell>
                       <TableCell>
                         {product.discountPrice ? (
                           <div className="flex flex-col">
