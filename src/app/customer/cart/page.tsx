@@ -38,6 +38,7 @@ export default function CartPage() {
   const [placingOrder, setPlacingOrder] = useState(false);
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
   const [isPromoDialogOpen, setIsPromoDialogOpen] = useState(false);
+  const [isCodConfirmOpen, setIsCodConfirmOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -69,7 +70,7 @@ export default function CartPage() {
              const userDoc = await getDoc(doc(db, 'users', user.uid));
              if (userDoc.exists()) {
                  const firebaseProfile = userDoc.data();
-                 finalProfile = { ...localProfile, ...firebaseProfile };
+                 finalProfile = { ...localProfile, name: firebaseProfile.name || localProfile.name || '', photoUrl: firebaseProfile.photoUrl || localProfile.photoUrl || '', mapLat: firebaseProfile.mapLat || localProfile.mapLat || '', mapLng: firebaseProfile.mapLng || localProfile.mapLng || ''};
              }
         }
         setProfile(finalProfile);
@@ -79,7 +80,7 @@ export default function CartPage() {
             address: finalProfile.address || '',
             pincode: finalProfile.pincode || '',
             village: finalProfile.village || '',
-            paymentMethod: finalProfile.paymentMethod || 'COD'
+            paymentMethod: 'COD'
         });
         setLoading(false);
     }
@@ -126,13 +127,11 @@ export default function CartPage() {
           return;
       }
       
-      // If address details are not filled, open the dialog first
       if (!orderData.name || !orderData.mobile || !orderData.address || !orderData.pincode) {
           setIsCheckoutDialogOpen(true);
           return;
       }
-
-      // If details are filled, proceed based on payment method
+      
       if (orderData.paymentMethod === 'COD') {
           setIsPromoDialogOpen(true);
       } else {
@@ -140,13 +139,12 @@ export default function CartPage() {
       }
   };
 
-  const handleConfirmDetails = () => {
+  const handleCheckout = () => {
     if (!orderData.name || !orderData.mobile || !orderData.address || !orderData.pincode) {
         toast({ variant: 'destructive', title: 'Information Missing', description: 'Please fill all address and contact details.' });
         return;
     }
     setIsCheckoutDialogOpen(false);
-    // Now the user will click the main button again to proceed.
   }
 
   const handlePromoChoice = async (choice: 'COD' | 'Online') => {
@@ -158,8 +156,13 @@ export default function CartPage() {
           });
           await initiateOnlinePayment();
       } else {
-          await saveOrderToFirebase('COD');
+          setIsCodConfirmOpen(true);
       }
+  }
+
+  const handleFinalCodConfirmation = async () => {
+      setIsCodConfirmOpen(false);
+      await saveOrderToFirebase('COD');
   }
 
   const initiateOnlinePayment = async () => {
@@ -185,7 +188,7 @@ export default function CartPage() {
             },
             prefill: {
                 name: orderData.name,
-                email: currentUser!.email,
+                email: currentUser!.email || '',
                 contact: orderData.mobile
             },
             theme: {
@@ -326,12 +329,10 @@ export default function CartPage() {
             </div>
 
             <Dialog open={isCheckoutDialogOpen} onOpenChange={setIsCheckoutDialogOpen}>
-              <DialogTrigger asChild>
-                 <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={handleProceedClick}>
-                    {placingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShoppingBasket className="mr-2 h-5 w-5"/>}
-                    {placingOrder ? 'Placing Order...' : 'Proceed to Checkout'}
-                 </Button>
-              </DialogTrigger>
+                <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={handleProceedClick}>
+                  {placingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShoppingBasket className="mr-2 h-5 w-5"/>}
+                  {placingOrder ? 'Placing Order...' : 'Order Now'}
+                </Button>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Confirm Delivery Details</DialogTitle>
@@ -386,7 +387,7 @@ export default function CartPage() {
                 
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)} disabled={placingOrder}>Go Back</Button>
-                  <Button onClick={handleConfirmDetails} disabled={placingOrder}>
+                  <Button onClick={handleCheckout} disabled={placingOrder}>
                     Confirm Details
                   </Button>
                 </DialogFooter>
@@ -423,9 +424,28 @@ export default function CartPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+            
+            <AlertDialog open={isCodConfirmOpen} onOpenChange={setIsCodConfirmOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>क्या आप निश्चित हैं?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    आप एक रोमांचक इनाम जीतने का मौका चूक सकते हैं। क्या आप वाकई COD के साथ आगे बढ़ना चाहते हैं?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>नहीं, वापस जाएं</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleFinalCodConfirmation}>
+                    हाँ, COD के साथ बुक करें
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
         </div>
       )}
     </div>
   );
 
 }
+
+    
