@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -75,7 +74,12 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
 
   const removePhoto = (index: number) => {
     setPhotoFiles(prev => prev.filter((_, i) => i !== index));
-    setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+    setPhotoPreviews(prev => {
+        const newPreviews = [...prev];
+        URL.revokeObjectURL(newPreviews[index]); // Clean up object URL
+        newPreviews.splice(index, 1);
+        return newPreviews;
+    });
   }
   
   const handleKeywordKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -266,7 +270,7 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
                     <div key={i} className="relative aspect-square">
                         {photoPreviews[i] ? (
                             <>
-                                <NextImage src={photoPreviews[i]} alt={`Preview ${i+1}`} layout="fill" className="object-cover rounded-md" />
+                                <NextImage src={photoPreviews[i]} alt={`Preview ${i+1}`} fill={true} className="object-cover rounded-md" />
                                 <button onClick={() => removePhoto(i)} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5" disabled={isSaving}>
                                     <X className="h-4 w-4" />
                                 </button>
