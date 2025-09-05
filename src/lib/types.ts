@@ -1,10 +1,18 @@
 
+
 export interface UserProfile {
     id: string;
     name: string;
     email: string | null;
     roles: { [key: string]: any };
     photoUrl?: string;
+    mobile?: string;
+    village?: string;
+    address?: string;
+    pincode?: string;
+    mapIp1?: string;
+    mapIp2?: string;
+    paymentMethod?: 'COD' | 'Online';
   }
   
   export interface Rating {
@@ -41,6 +49,11 @@ export interface UserProfile {
     deliveryId?: string;
     deliveryPersonName?: string;
     customerHasViewedUpdate?: boolean;
+    paymentMethod?: 'COD' | 'Online';
+    paymentId?: string;
+    customerAddress?: string;
+    customerPincode?: string;
+    customerMobile?: string;
   }
 
     
