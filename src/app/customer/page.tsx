@@ -7,7 +7,7 @@ import { db, auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Product, Order, CartItem, ProductCategory, Banner, UserProfile } from '@/lib/types';
+import { Product, Order, CartItem, ProductCategory, UserProfile } from '@/lib/types';
 import { Loader2, Package, ShoppingBag, History, Star, Soup, Apple, Beef, Wheat, Bell, User as UserIcon, Search, BadgePercent, HelpCircle, GitCompareArrows } from 'lucide-react';
 import Image from 'next/image';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -15,16 +15,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-
-type CategoryFilter = 'All' | ProductCategory;
-
-const categoryIcons = {
-  All: Package,
-  Vegetables: Soup,
-  Fruits: Apple,
-  Grocery: Wheat,
-  Cafe: Beef,
-};
+interface Banner {
+  id: string;
+  imageUrl: string;
+  active: boolean;
+}
 
 export default function CustomerPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -118,8 +113,9 @@ export default function CustomerPage() {
                 </Avatar>
             </div>
             <h1 className="font-bold text-lg font-headline text-primary">Ramu Kaka Market</h1>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-6 w-6"/>
+                <span className="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-background"></span>
             </Button>
         </header>
 
@@ -158,15 +154,8 @@ export default function CustomerPage() {
                 <span className="text-xs font-semibold">Compare</span>
             </Button>
         </div>
-
-        {/* Bottom Banner */}
-         <div className="aspect-[2/1] bg-card rounded-xl overflow-hidden shadow-sm">
-            {getBannerUrl('banner2') ? (
-                <Image src={getBannerUrl('banner2')!} alt="Promotional Banner 2" width={600} height={300} className="object-cover w-full h-full"/>
-            ) : (
-                <div className="flex items-center justify-center h-full bg-muted/50 text-muted-foreground">Banner 2</div>
-            )}
-        </div>
     </div>
   );
 }
+
+    

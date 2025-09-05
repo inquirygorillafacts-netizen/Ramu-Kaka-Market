@@ -42,9 +42,4 @@ export interface UserProfile {
     deliveryPersonName?: string;
   }
 
-  export interface Banner {
-    id: string;
-    imageUrl: string;
-    active: boolean;
-  }
-  
+    
