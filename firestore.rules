@@ -1,76 +1,45 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =================================
-    // Helper Functions (सहायक फ़ंक्शन)
-    // =================================
-
-    // जाँचता है कि उपयोगकर्ता लॉग इन है या नहीं
+    // Helper functions
     function isAuth() {
       return request.auth != null;
     }
 
-    // जाँचता है कि उपयोगकर्ता अपने ही दस्तावेज़ को एक्सेस कर रहा है
     function isOwner(userId) {
-      return isAuth() && request.auth.uid == userId;
-    }
-
-    // जाँचता है कि लॉग-इन उपयोगकर्ता एक एडमिन है या नहीं
-    function isAdmin() {
-      // यह Firestore से उपयोगकर्ता की भूमिका की जानकारी लेता है
-      // और जाँचता है कि 'admin' भूमिका एक ऑब्जेक्ट (map) है
-      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin is map;
-    }
-
-    // =================================
-    // Rules for the 'users' collection
-    // =================================
-    match /users/{userId} {
-      // पढ़ने का नियम (READ):
-      // एक एडमिन किसी भी उपयोगकर्ता का दस्तावेज़ पढ़ सकता है।
-      // एक उपयोगकर्ता केवल अपना ही दस्तावेज़ पढ़ सकता है।
-      allow read: if isOwner(userId) || isAdmin();
-
-      // बनाने का नियम (CREATE):
-      // कोई भी लॉग-इन उपयोगकर्ता अपना प्रोफ़ाइल बना सकता है,
-      // लेकिन वह खुद को एडमिन नहीं बना सकता।
-      allow create: if isAuth() && (!('admin' in request.resource.data.roles) || isAdmin());
-
-      // अपडेट करने का नियम (UPDATE):
-      // एक उपयोगकर्ता अपनी प्रोफ़ाइल तभी अपडेट कर सकता है जब वह अपनी भूमिका (roles) को न बदले।
-      // केवल एक एडमिन ही किसी भी उपयोगकर्ता की भूमिकाओं को अपडेट कर सकता है।
-      allow update: if (isOwner(userId) && request.resource.data.roles == resource.data.roles) || isAdmin();
-
-      // डिलीट करने का नियम (DELETE):
-      // एक उपयोगकर्ता केवल अपना ही प्रोफ़ाइल डिलीट कर सकता है।
-      allow delete: if isOwner(userId);
+      return request.auth.uid == userId;
     }
     
-    // =================================
-    // Rules for the 'orders' collection
-    // =================================
-    match /orders/{orderId} {
-      // पढ़ने का नियम (READ):
-      // एडमिन कोई भी ऑर्डर देख सकता है।
-      // ग्राहक अपना ऑर्डर देख सकता है।
-      // डिलीवरी बॉय उसे सौंपा गया ऑर्डर देख सकता है।
-      allow read: if isAdmin() || 
-                   (isAuth() && resource.data.customerId == request.auth.uid) ||
-                   (isAuth() && 'delivery' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles && resource.data.assignedTo == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.delivery.deliveryId);
-                   
-      // बनाने का नियम (CREATE):
-      // केवल प्रमाणित उपयोगकर्ता (ग्राहक) और एडमिन ही ऑर्डर बना सकते हैं।
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin == true;
+    }
+
+    // User rules
+    match /users/{userId} {
+      allow read: if isAuth();
+      // Allow user creation for anyone authenticated
       allow create: if isAuth();
+      // Allow users to update their own data, but NOT their roles
+      // Allow admins to update anything
+      allow update: if (isOwner(userId) && request.resource.data.roles == resource.data.roles) || isAdmin();
+    }
 
-      // अपडेट करने का नियम (UPDATE):
-      // केवल एडमिन ही ऑर्डर को अपडेट कर सकता है (जैसे डिलीवरी बॉय असाइन करना)।
-      allow update: if isAdmin();
+    // Product rules
+    match /products/{productId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
 
-      // डिलीट करने का नियम (DELETE):
-      // केवल एडमिन ही ऑर्डर को डिलीट कर सकता है।
-      allow delete: if isAdmin();
+    // Order rules
+    match /orders/{orderId} {
+      allow read, update: if isAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.delivery == true;
+      allow create: if isAuth();
+      // Customers can only access their own orders
+      // `list` is needed for queries
+      allow list: if isAdmin() || (isAuth() && request.query.customerId == request.auth.uid);
     }
   }
 }
