@@ -39,7 +39,7 @@ export default function RoleSelectionPage() {
           };
           setUser(profile);
 
-          const userRoles = Object.keys(profile.roles);
+          const userRoles = profile.roles ? Object.keys(profile.roles) : [];
           if (userRoles.length === 1 && userRoles[0] === 'customer') {
             router.replace('/customer');
           } else {
@@ -71,7 +71,7 @@ export default function RoleSelectionPage() {
     );
   }
 
-  const userRoles = Object.keys(user.roles);
+  const userRoles = user.roles ? Object.keys(user.roles) : [];
 
   const roleConfig = {
       customer: { icon: ShoppingCart, name: "Customer", path: "/customer", description: "Shop for fresh products" },
