@@ -110,22 +110,20 @@ export default function RoleSelectionPage() {
               if (!config) return null;
 
               return (
-                  <Link href={config.path} key={role} legacyBehavior>
-                      <a className="block transform hover:-translate-y-1 transition-transform duration-300">
-                          <Card className="text-center hover:shadow-2xl hover:border-primary/50 transition-all duration-300 h-full">
-                              <CardHeader>
-                                  <div className="flex justify-center items-center mb-4">
-                                      <div className="p-4 bg-primary/10 rounded-full">
-                                          <config.icon className="w-10 h-10 text-primary"/>
-                                      </div>
+                  <Link href={config.path} key={role} className="block transform hover:-translate-y-1 transition-transform duration-300">
+                      <Card className="text-center hover:shadow-2xl hover:border-primary/50 transition-all duration-300 h-full">
+                          <CardHeader>
+                              <div className="flex justify-center items-center mb-4">
+                                  <div className="p-4 bg-primary/10 rounded-full">
+                                      <config.icon className="w-10 h-10 text-primary"/>
                                   </div>
-                                  <CardTitle className="font-headline">{config.name} Panel</CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                  <p className="text-muted-foreground">{config.description}</p>
-                              </CardContent>
-                          </Card>
-                      </a>
+                              </div>
+                              <CardTitle className="font-headline">{config.name} Panel</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                              <p className="text-muted-foreground">{config.description}</p>
+                          </CardContent>
+                      </Card>
                   </Link>
               )
           })}
