@@ -20,9 +20,10 @@ service cloud.firestore {
     // जाँचता है कि लॉग-इन उपयोगकर्ता एक एडमिन है या नहीं
     function isAdmin() {
       // यह Firestore से उपयोगकर्ता की भूमिका की जानकारी लेता है
+      // और जाँचता है कि 'admin' भूमिका एक ऑब्जेक्ट (map) है
       return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin is map;
     }
-    
+
     // =================================
     // Rules for the 'users' collection
     // =================================
@@ -33,8 +34,9 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin();
 
       // बनाने का नियम (CREATE):
-      // कोई भी लॉग-इन उपयोगकर्ता अपना प्रोफ़ाइल बना सकता है।
-      allow create: if isAuth();
+      // कोई भी लॉग-इन उपयोगकर्ता अपना प्रोफ़ाइल बना सकता है,
+      // लेकिन वह खुद को एडमिन नहीं बना सकता।
+      allow create: if isAuth() && (!('admin' in request.resource.data.roles) || isAdmin());
 
       // अपडेट करने का नियम (UPDATE):
       // एक उपयोगकर्ता अपनी प्रोफ़ाइल तभी अपडेट कर सकता है जब वह अपनी भूमिका (roles) को न बदले।
@@ -51,12 +53,12 @@ service cloud.firestore {
     // =================================
     match /orders/{orderId} {
       // पढ़ने का नियम (READ):
-      // 1. एडमिन कोई भी ऑर्डर पढ़ सकता है।
-      // 2. ग्राहक अपना खुद का ऑर्डर पढ़ सकता है।
-      // 3. डिलीवरी बॉय उसे सौंपा गया ऑर्डर पढ़ सकता है।
-      allow read: if isAdmin() ||
+      // एडमिन कोई भी ऑर्डर देख सकता है।
+      // ग्राहक अपना ऑर्डर देख सकता है।
+      // डिलीवरी बॉय उसे सौंपा गया ऑर्डर देख सकता है।
+      allow read: if isAdmin() || 
                    (isAuth() && resource.data.customerId == request.auth.uid) ||
-                   (isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.delivery.deliveryId == resource.data.assignedTo);
+                   (isAuth() && 'delivery' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles && resource.data.assignedTo == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.delivery.deliveryId);
                    
       // बनाने का नियम (CREATE):
       // केवल प्रमाणित उपयोगकर्ता (ग्राहक) और एडमिन ही ऑर्डर बना सकते हैं।
