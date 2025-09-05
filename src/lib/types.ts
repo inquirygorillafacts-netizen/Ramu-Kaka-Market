@@ -7,11 +7,20 @@ export interface UserProfile {
     photoUrl?: string;
   }
   
+  export interface Rating {
+    points: number;
+    count: number;
+  }
+
   export interface Product {
     id: string;
     name: string;
     price: number;
-    imageUrl: string;
+    images: string[];
+    unit: 'kg' | 'gram' | 'piece' | 'litre';
+    keywords?: string[];
+    discountPrice?: number | null;
+    rating?: Rating;
   }
   
   export interface CartItem extends Product {

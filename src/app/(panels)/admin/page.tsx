@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, doc, getDoc, updateDoc, onSnapshot, query, orderBy, where, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Users, AlertTriangle, Package, ShoppingBasket, PlusCircle, User, Truck } from 'lucide-react';
+import { Loader2, Users, AlertTriangle, Package, ShoppingBasket, PlusCircle, User, Truck, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProductForm from './ProductForm';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Product, Order } from '@/lib/types';
+import NextImage from 'next/image';
 
 
 export default function AdminPage() {
@@ -33,31 +34,7 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists() && userDoc.data().roles.admin) {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
-          setLoading(false);
-          router.push('/role-selection');
-        }
-      } else {
-        router.push('/auth');
-      }
-    });
-
-    return () => unsubscribeAuth();
-  }, [router]);
-
-  useEffect(() => {
-    if (!isAdmin) return;
-
-    setLoading(true);
-
+  const fetchData = useCallback(() => {
     // Fetch users
     const usersQuery = query(collection(db, 'users'));
     const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
@@ -97,21 +74,44 @@ export default function AdminPage() {
       setError("Failed to load order data.");
     });
 
+    return { unsubscribeUsers, unsubscribeProducts, unsubscribeOrders };
+  }, []);
 
-    Promise.all([getDocs(usersQuery), getDocs(productsQuery), getDocs(ordersQuery)]).then(() => {
-      setLoading(false)
-    }).catch(err => {
-      console.error(err);
-      setError("An error occurred while fetching initial data.");
-      setLoading(false);
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists() && userDoc.data().roles.admin) {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+          router.push('/role-selection');
+        }
+      } else {
+        router.push('/auth');
+      }
     });
+
+    return () => unsubscribeAuth();
+  }, [router]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+        setLoading(false);
+        return;
+    };
+
+    setLoading(true);
+    const { unsubscribeUsers, unsubscribeProducts, unsubscribeOrders } = fetchData();
+    setLoading(false);
 
     return () => {
       unsubscribeUsers();
       unsubscribeProducts();
       unsubscribeOrders();
     };
-  }, [isAdmin]);
+  }, [isAdmin, fetchData]);
 
   const handleManageRolesClick = (user: UserProfile) => {
     setSelectedUser(user);
@@ -298,16 +298,43 @@ export default function AdminPage() {
                     <TableHead>Image</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Price</TableHead>
+                    <TableHead>Rating</TableHead>
+                    <TableHead>Keywords</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {products.map(product => (
                     <TableRow key={product.id}>
                       <TableCell>
-                        <img src={product.imageUrl} alt={product.name} className="w-12 h-12 object-cover rounded-md" />
+                        {product.images && product.images[0] ? (
+                          <NextImage src={product.images[0]} alt={product.name} width={48} height={48} className="w-12 h-12 object-cover rounded-md" />
+                        ) : <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center text-muted-foreground">?</div> }
                       </TableCell>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell>₹{product.price.toFixed(2)}</TableCell>
+                      <TableCell className="font-medium">{product.name} <span className="text-muted-foreground text-xs">({product.unit})</span></TableCell>
+                      <TableCell>
+                        {product.discountPrice ? (
+                          <div className="flex flex-col">
+                            <span className="font-bold text-base">₹{product.discountPrice.toFixed(2)}</span>
+                            <span className="line-through text-muted-foreground text-xs">₹{product.price.toFixed(2)}</span>
+                          </div>
+                        ) : (
+                          <span className="font-bold text-base">₹{product.price.toFixed(2)}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {product.rating && product.rating.count > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-400" />
+                            <span className="font-bold">{product.rating.points.toFixed(1)}</span>
+                            <span className="text-xs text-muted-foreground">({product.rating.count})</span>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {product.keywords?.map(kw => <Badge key={kw} variant="secondary">{kw}</Badge>)}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -373,6 +400,7 @@ export default function AdminPage() {
       <ProductForm 
         isOpen={isProductFormOpen}
         onOpenChange={setIsProductFormOpen}
+        onProductAdded={() => { /* Can be used to refetch if not using snapshots */ }}
       />
     </div>
   );

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Product, Order, CartItem } from '@/lib/types';
-import { Loader2, Package, ShoppingBag, History, BadgePercent, Sparkles, Handshake } from 'lucide-react';
+import { Loader2, Package, ShoppingBag, History, BadgePercent, Sparkles, Handshake, Star } from 'lucide-react';
 import Image from 'next/image';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -105,7 +105,10 @@ export default function CustomerPage() {
   }
 
   const getCartTotal = () => {
-    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
+    return cart.reduce((total, item) => {
+      const price = item.discountPrice ?? item.price;
+      return total + price * item.quantity;
+    }, 0);
   };
 
   const placeOrder = async () => {
@@ -173,8 +176,8 @@ export default function CustomerPage() {
         </div>
       
         <TabsContent value="shop">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
+            <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="lg:col-span-2 xl:col-span-3">
                     <Card>
                         <CardHeader>
                         <CardTitle>Products</CardTitle>
@@ -186,17 +189,35 @@ export default function CustomerPage() {
                                 <Loader2 className="w-8 h-8 animate-spin" />
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                             {products.map((product) => (
-                                <Card key={product.id} className="flex flex-col">
-                                    <CardHeader className="p-0">
-                                        <div className="relative aspect-square w-full">
-                                            <Image src={product.imageUrl} alt={product.name} fill className="object-cover rounded-t-lg"/>
+                                <Card key={product.id} className="flex flex-col overflow-hidden">
+                                    <div className="relative aspect-square w-full">
+                                        <Image src={product.images[0]} alt={product.name} fill className="object-cover"/>
+                                        {product.discountPrice && (
+                                            <Badge className="absolute top-2 left-2 bg-destructive">SALE</Badge>
+                                        )}
+                                    </div>
+                                    <CardContent className="p-4 flex-grow flex flex-col">
+                                      <h3 className="font-semibold flex-grow">{product.name}</h3>
+                                      <div className="text-muted-foreground text-sm mb-2">per {product.unit}</div>
+                                      
+                                      {product.rating && product.rating.count > 0 && (
+                                        <div className="flex items-center gap-1 text-xs mb-2">
+                                          <Star className="w-4 h-4 text-yellow-500 fill-yellow-400"/>
+                                          <span className="font-bold">{product.rating.points.toFixed(1)}</span>
+                                          <span>({product.rating.count})</span>
                                         </div>
-                                    </CardHeader>
-                                    <CardContent className="p-4 flex-grow">
-                                        <h3 className="font-semibold">{product.name}</h3>
-                                        <p className="text-muted-foreground text-sm">₹{product.price.toFixed(2)}</p>
+                                      )}
+
+                                      {product.discountPrice ? (
+                                        <div>
+                                          <span className="text-lg font-bold text-destructive">₹{product.discountPrice.toFixed(2)}</span>
+                                          <span className="ml-2 line-through text-muted-foreground">₹{product.price.toFixed(2)}</span>
+                                        </div>
+                                      ) : (
+                                        <p className="text-lg font-bold">₹{product.price.toFixed(2)}</p>
+                                      )}
                                     </CardContent>
                                     <CardFooter className="p-4 pt-0">
                                         <Button className="w-full" onClick={() => addToCart(product)}>Add to Cart</Button>
@@ -208,13 +229,13 @@ export default function CustomerPage() {
                         </CardContent>
                     </Card>
                 </div>
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 xl:col-span-1">
                     <Card className="sticky top-6">
                         <CardHeader>
                         <CardTitle>Your Cart</CardTitle>
                         <CardDescription>Items you have added.</CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="max-h-[50vh] overflow-y-auto">
                         {cart.length === 0 ? (
                             <p className="text-muted-foreground">Your cart is empty.</p>
                         ) : (
@@ -224,11 +245,11 @@ export default function CustomerPage() {
                                     <div>
                                         <p className="font-medium">{item.name}</p>
                                         <p className="text-sm text-muted-foreground">
-                                            ₹{item.price.toFixed(2)} x {item.quantity}
+                                            ₹{(item.discountPrice ?? item.price).toFixed(2)} x {item.quantity}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <p className="font-semibold">₹{(item.price * item.quantity).toFixed(2)}</p>
+                                        <p className="font-semibold">₹{((item.discountPrice ?? item.price) * item.quantity).toFixed(2)}</p>
                                         <Button variant="outline" size="sm" onClick={() => removeFromCart(item.id)}>-</Button>
                                     </div>
                                 </div>
@@ -237,7 +258,7 @@ export default function CustomerPage() {
                         )}
                         </CardContent>
                         {cart.length > 0 && (
-                        <CardFooter className="flex flex-col gap-4">
+                        <CardFooter className="flex flex-col gap-4 border-t pt-4">
                             <div className="flex justify-between w-full font-bold text-lg">
                                 <span>Total</span>
                                 <span>₹{getCartTotal().toFixed(2)}</span>
