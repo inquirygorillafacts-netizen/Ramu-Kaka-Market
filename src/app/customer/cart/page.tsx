@@ -15,10 +15,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { addDoc, collection, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -40,6 +39,7 @@ export default function CartPage() {
   const [isPromoDialogOpen, setIsPromoDialogOpen] = useState(false);
   const [hasShownPromo, setHasShownPromo] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isCodConfirmOpen, setIsCodConfirmOpen] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -139,20 +139,13 @@ export default function CartPage() {
           return;
       }
       
-      // Always open the dialog if it's not already open
-      if (!isCheckoutDialogOpen) {
+      // If form details are not filled, always open the dialog
+      if (!orderData.name || !orderData.mobile || !orderData.address || !orderData.pincode) {
           setIsCheckoutDialogOpen(true);
           return;
       }
       
-      // If dialog is open and form is not filled, show a toast.
-      if (!orderData.name || !orderData.mobile || !orderData.address) {
-          toast({ variant: 'destructive', title: 'Information Missing', description: 'Please fill all address and contact details.' });
-          return;
-      }
-      
-      // If form is filled, proceed with payment logic
-      setIsCheckoutDialogOpen(false); // Close the checkout dialog first
+      // Details are filled, proceed based on payment method
       if (orderData.paymentMethod === 'Online') {
           await initiateOnlinePayment();
       } else { // COD
@@ -160,7 +153,7 @@ export default function CartPage() {
             setIsPromoDialogOpen(true);
             setHasShownPromo(true);
           } else {
-            await saveOrderToFirebase('COD');
+            setIsCodConfirmOpen(true);
           }
       }
   };
@@ -170,12 +163,7 @@ export default function CartPage() {
         toast({ variant: 'destructive', title: 'Information Missing', description: 'Please fill all address and contact details.' });
         return;
     }
-
-    setIsCheckoutDialogOpen(false); // Close the form dialog
-
-    // Now, let the user click the main button again to confirm their choice.
-    // If they chose COD, the next click on "Order Now" will show the promo.
-    // If they chose Online, the next click will initiate payment.
+    setIsCheckoutDialogOpen(false); 
     toast({
       title: 'Details Confirmed',
       description: 'Click "Order Now" again to finalize your order.'
@@ -450,40 +438,57 @@ export default function CartPage() {
               </DialogContent>
             </Dialog>
 
-            <Dialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
-                <DialogContent className="max-w-md">
-                     <DialogHeader>
-                        <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-                            <X className="h-4 w-4" />
-                            <span className="sr-only">Close</span>
-                        </DialogClose>
-                        <div className="flex justify-center mb-4">
-                            <div className="p-3 bg-yellow-100 rounded-full">
-                                <Gift className="w-10 h-10 text-yellow-500" />
-                            </div>
-                        </div>
-                        <DialogTitle className="text-center text-xl font-headline">एक और मौका, इनाम जीतने का!</DialogTitle>
-                        <DialogDescription className="text-center text-base/relaxed text-muted-foreground space-y-2">
-                          <span>ऑनलाइन पेमेंट करने वाले टॉप 10 लोगों को मिलेगा फ्री रिचार्ज, ओर जो सबसे नंबर one आएगा उसे मिलेगा रिचार्ज के साथ - साथ 501 रूपीए का इनाम भी।</span>
-                          <span>तो अब से करो बुकिंग ऑनलाइन क्योंकि पेसे तो वो ही लगेंगे लेकिन इनाम मे भी आपका नाम आए जाएगा।</span>
-                        </DialogDescription>
-                         <div className="text-center text-sm text-muted-foreground pt-2">
-                           <span>कुछ भी सवाल है तो अभी कॉल करो</span>
-                           <Button variant="link" className="p-0 h-auto" asChild>
-                              <a href="tel:8302806913"> 8302806913</a>
-                           </Button>
-                         </div>
-                    </DialogHeader>
-                    <DialogFooter>
-                       <Button variant="outline" onClick={() => { saveOrderToFirebase('COD'); }}>
-                            COD से भुगतान करें
-                        </Button>
-                        <Button onClick={() => { setIsPromoDialogOpen(false); initiateOnlinePayment(); }}>
-                           ऑनलाइन भुगतान करें और जीतें
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <AlertDialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
+              <AlertDialogContent className="max-w-md">
+                   <AlertDialogHeader>
+                      <AlertDialogCancel className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground p-1.5">
+                          <X className="h-4 w-4" />
+                          <span className="sr-only">Close</span>
+                      </AlertDialogCancel>
+                      <div className="flex justify-center mb-4">
+                          <div className="p-3 bg-yellow-100 rounded-full">
+                              <Gift className="w-10 h-10 text-yellow-500" />
+                          </div>
+                      </div>
+                      <AlertDialogTitle className="text-center text-xl font-headline">एक और मौका, इनाम जीतने का!</AlertDialogTitle>
+                      <AlertDialogDescription className="text-center text-base/relaxed text-muted-foreground space-y-2">
+                        <span>ऑनलाइन पेमेंट करने वाले टॉप 10 लोगों को मिलेगा फ्री रिचार्ज, ओर जो सबसे नंबर one आएगा उसे मिलेगा रिचार्ज के साथ - साथ 501 रूपीए का इनाम भी।</span>
+                        <span>तो अब से करो बुकिंग ऑनलाइन क्योंकि पेसे तो वो ही लगेंगे लेकिन इनाम मे भी आपका नाम आए जाएगा।</span>
+                      </AlertDialogDescription>
+                       <div className="text-center text-sm text-muted-foreground pt-2">
+                         <span>कुछ भी सवाल है तो अभी कॉल करो</span>
+                         <Button variant="link" className="p-0 h-auto" asChild>
+                            <a href="tel:8302806913"> 8302806913</a>
+                         </Button>
+                       </div>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                     <Button variant="outline" onClick={() => { setIsCodConfirmOpen(true); setIsPromoDialogOpen(false); }}>
+                          COD से भुगतान करें
+                      </Button>
+                      <Button onClick={() => { setIsPromoDialogOpen(false); initiateOnlinePayment(); }}>
+                         ऑनलाइन भुगतान करें और जीतें
+                      </Button>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+             <AlertDialog open={isCodConfirmOpen} onOpenChange={setIsCodConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        क्या आप वाकई COD के साथ आगे बढ़ना चाहते हैं?
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>नहीं, वापस जाएं</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => saveOrderToFirebase('COD')}>
+                        हाँ, COD के साथ बुक करें
+                    </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
             
         </div>
       )}
@@ -491,5 +496,3 @@ export default function CartPage() {
   );
 
 }
-
-    
