@@ -93,8 +93,13 @@ export default function CustomerPage() {
         const orderRef = doc(db, 'orders', notif.id);
         batch.update(orderRef, { customerHasViewedUpdate: true });
     });
-    await batch.commit();
-    setNotifications([]);
+    try {
+        await batch.commit();
+        setNotifications([]);
+    } catch(err) {
+        console.error("Failed to clear notifications:", err)
+        toast({variant: 'destructive', title: 'Error', description: 'Could not clear notifications.'})
+    }
   };
 
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
