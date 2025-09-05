@@ -27,10 +27,9 @@ export default function Home() {
   const [selectedUser, setSelectedUser] = useState<MockUser | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 2500); // Simulate loading
-    return () => clearTimeout(timer);
-  }, []);
+  const handleAnimationComplete = () => {
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (selectedUser?.roles.length === 1) {
@@ -44,7 +43,7 @@ export default function Home() {
   };
   
   if (loading) {
-    return <SplashScreen />;
+    return <SplashScreen onAnimationComplete={handleAnimationComplete} />;
   }
   
   if (selectedUser?.roles.length > 1) {

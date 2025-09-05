@@ -1,8 +1,11 @@
 import { Apple, Carrot, Milk, Wheat, Lollipop, BadgePercent, Gift, Star } from 'lucide-react';
 
-export default function SplashScreen() {
+export default function SplashScreen({ onAnimationComplete }: { onAnimationComplete: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground overflow-hidden font-sans">
+    <div 
+      className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground overflow-hidden font-sans animate-fade-out"
+      onAnimationEnd={onAnimationComplete}
+    >
       <div className="relative flex flex-col items-center">
         <div className="mb-12 flex flex-col md:flex-row gap-4 items-center justify-center">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-card border shadow-sm animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
