@@ -2,16 +2,15 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, addDoc, where, orderBy, Timestamp, doc } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, where, orderBy, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Product, Order, CartItem, ProductCategory, Banner } from '@/lib/types';
+import { Product, Order, CartItem, ProductCategory, Banner, UserProfile } from '@/lib/types';
 import { Loader2, Package, ShoppingBag, History, Star, Soup, Apple, Beef, Wheat, Bell, User as UserIcon, Search, BadgePercent, HelpCircle, GitCompareArrows } from 'lucide-react';
 import Image from 'next/image';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -35,14 +34,24 @@ export default function CustomerPage() {
   const [loading, setLoading] = useState(true);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
-    // Auth state
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    // Auth state and user profile fetching
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          setUserProfile({ id: user.uid, ...userDoc.data() } as UserProfile);
+        }
+      } else {
+        setUserProfile(null);
+      }
     });
 
     // Products
@@ -109,8 +118,8 @@ export default function CustomerPage() {
         {/* Header */}
         <div className="flex justify-between items-center">
             <Avatar>
-                <AvatarImage src={currentUser?.photoURL || ''} alt={currentUser?.displayName || 'User'} />
-                <AvatarFallback>{getInitials(currentUser?.displayName || '')}</AvatarFallback>
+                <AvatarImage src={userProfile?.photoUrl || ''} alt={userProfile?.name || 'User'} />
+                <AvatarFallback>{getInitials(userProfile?.name || '')}</AvatarFallback>
             </Avatar>
             <h1 className="text-2xl font-bold font-headline text-primary">Ramu Kaka Market</h1>
             <Button variant="ghost" size="icon">
