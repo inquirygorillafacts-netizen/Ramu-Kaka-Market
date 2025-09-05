@@ -1,38 +1,86 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper functions to keep rules clean
+
+    // =================================
+    // Helper Functions (सहायक फ़ंक्शन)
+    // =================================
+
+    // जाँचता है कि उपयोगकर्ता लॉग इन है या नहीं
     function isAuth() {
       return request.auth != null;
     }
-    
+
+    // जाँचता है कि उपयोगकर्ता अपने ही दस्तावेज़ को एक्सेस कर रहा है
     function isOwner(userId) {
       return isAuth() && request.auth.uid == userId;
     }
-    
+
+    // जाँचता है कि लॉग-इन उपयोगकर्ता एक एडमिन है या नहीं
     function isAdmin() {
-      // Check if the user making the request has the 'admin' role in their own document in Firestore.
-      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin != null;
+      // यह Firestore से उपयोगकर्ता की भूमिका की जानकारी लेता है
+      // और जाँचता है कि 'admin' भूमिका एक ऑब्जेक्ट (map) है
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin is map;
+    }
+    
+    // उपयोगकर्ता की डिलीवरी आईडी सुरक्षित रूप से प्राप्त करता है
+    function getDeliveryId() {
+        let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+        // पहले जांचें कि delivery रोल मौजूद है या नहीं
+        if ('delivery' in userDoc.roles && 'deliveryId' in userDoc.roles.delivery) {
+          return userDoc.roles.delivery.deliveryId;
+        }
+        return null;
     }
 
+
+    // =================================
+    // Rules for the 'users' collection
+    // =================================
     match /users/{userId} {
-      // READ: An admin can read any user profile. A user can read their own.
-      // This is needed for the admin panel to list all users.
+      // पढ़ने का नियम (READ):
+      // एक एडमिन किसी भी उपयोगकर्ता का दस्तावेज़ पढ़ सकता है।
+      // एक उपयोगकर्ता केवल अपना ही दस्तावेज़ पढ़ सकता है।
       allow read: if isOwner(userId) || isAdmin();
 
-      // CREATE: Any authenticated user can create their own user document (registration).
+      // बनाने का नियम (CREATE):
+      // कोई भी लॉग-इन उपयोगकर्ता अपना प्रोफ़ाइल बना सकता है।
       allow create: if isAuth();
 
-      // UPDATE: A user can update their own document, BUT CANNOT change their roles.
-      // Only an admin can update roles for any user.
-      allow update: if isOwner(userId) && !("roles" in request.resource.data) || 
-                       isAdmin() && "roles" in request.resource.data;
+      // अपडेट करने का नियम (UPDATE):
+      // एक उपयोगकर्ता अपनी प्रोफ़ाइल तभी अपडेट कर सकता है जब वह अपनी भूमिका (roles) को न बदले।
+      // केवल एक एडमिन ही किसी भी उपयोगकर्ता की भूमिकाओं को अपडेट कर सकता है।
+      allow update: if (isOwner(userId) && request.resource.data.roles == resource.data.roles) || isAdmin();
 
-      // DELETE: Only the user themselves can delete their account.
+      // डिलीट करने का नियम (DELETE):
+      // एक उपयोगकर्ता केवल अपना ही प्रोफ़ाइल डिलीट कर सकता है।
       allow delete: if isOwner(userId);
+    }
+    
+    // =================================
+    // Rules for the 'orders' collection
+    // =================================
+    match /orders/{orderId} {
+      // पढ़ने का नियम (READ):
+      // ग्राहक अपना ऑर्डर देख सकता है,
+      // डिलीवरी बॉय उसे सौंपा गया ऑर्डर देख सकता है,
+      // और एडमिन कोई भी ऑर्डर देख सकता है।
+      allow read: if (isAuth() && resource.data.customerId == request.auth.uid) || 
+                   (isAuth() && resource.data.assignedTo == getDeliveryId()) ||
+                   isAdmin();
+                   
+      // बनाने का नियम (CREATE):
+      // केवल प्रमाणित उपयोगकर्ता (ग्राहक) और एडमिन ही ऑर्डर बना सकते हैं।
+      allow create: if isAuth();
+
+      // अपडेट करने का नियम (UPDATE):
+      // केवल एडमिन ही ऑर्डर को अपडेट कर सकता है (जैसे डिलीवरी बॉय असाइन करना)।
+      allow update: if isAdmin();
+
+      // डिलीट करने का नियम (DELETE):
+      // केवल एडमिन ही ऑर्डर को डिलीट कर सकता है।
+      allow delete: if isAdmin();
     }
   }
 }
