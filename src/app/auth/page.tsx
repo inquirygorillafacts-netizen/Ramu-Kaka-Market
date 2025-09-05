@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Phone, Mail, Lock, Image as ImageIcon, UploadCloud, Loader2, Camera } from 'lucide-react';
+import { User, Phone, Mail, Lock, Image as ImageIcon, Camera, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
@@ -78,6 +78,16 @@ export default function AuthPage() {
       });
       return;
     }
+    
+    if (formData.password.length < 6) {
+      toast({
+        variant: 'destructive',
+        title: 'Weak Password',
+        description: 'Password must be at least 6 characters long.',
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     let photoUrl = '';
@@ -264,3 +274,5 @@ export default function AuthPage() {
     </main>
   );
 }
+
+    
