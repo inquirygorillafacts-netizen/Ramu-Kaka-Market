@@ -97,15 +97,15 @@ export default {
           from: { opacity: '0', transform: 'translateY(10px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
-        'cart-bounce': {
-          '0%, 100%': { transform: 'translateY(-5%) scale(1)' },
-          '50%': { transform: 'translateY(0) scale(1.05)' },
+        'add-to-cart': {
+          '0%': { transform: 'scale(0.5) translateY(-20px)', opacity: '0' },
+          '40%': { transform: 'scale(1) translateY(0)', opacity: '1' },
+          '60%': { transform: 'scale(1) translateY(0) translateX(0) rotate(0deg)', opacity: '1' },
+          '100%': { transform: 'scale(0.3) translateY(80px) translateX(80px) rotate(90deg)', opacity: '0' },
         },
-        'item-drop': {
-          '0%': { transform: 'translateY(-100px) scale(0)', opacity: '0' },
-          '30%': { opacity: '1' },
-          '50%': { transform: 'translateY(0) scale(1)', opacity: '1' },
-          '100%': { transform: 'translateY(20px) scale(0)', opacity: '0' },
+        'cart-slide': {
+          '0%, 40%': { transform: 'translateX(200%)' },
+          '60%, 100%': { transform: 'translateX(0)' },
         }
       },
       animation: {
@@ -113,8 +113,8 @@ export default {
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-in': 'fade-in 0.5s ease-out forwards',
         'fade-in-up': 'fade-in-up 0.5s ease-out forwards',
-        'cart-bounce': 'cart-bounce 1.5s ease-in-out infinite',
-        'item-drop': 'item-drop 2s ease-in-out infinite'
+        'add-to-cart': 'add-to-cart 1.5s ease-in-out forwards',
+        'cart-slide': 'cart-slide 1.5s ease-out forwards'
       },
     },
   },
