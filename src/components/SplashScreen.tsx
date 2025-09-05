@@ -3,21 +3,21 @@ import { Apple, Carrot, Milk, Wheat, Lollipop, BadgePercent, Gift, Star } from '
 export default function SplashScreen() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground overflow-hidden font-sans">
-        <div className="mb-12 flex flex-col md:flex-row gap-4 items-center justify-center">
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-card border shadow-sm animate-fade-in-up" style={{ animationDelay: '2.2s' }}>
-            <BadgePercent className="w-6 h-6 text-primary" />
-            <span className="font-semibold text-foreground">Best Deals</span>
-        </div>
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-card border shadow-sm animate-fade-in-up" style={{ animationDelay: '2.4s' }}>
-            <Gift className="w-6 h-6 text-accent" />
-            <span className="font-semibold text-foreground">Exciting Rewards</span>
-        </div>
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-card border shadow-sm animate-fade-in-up" style={{ animationDelay: '2.6s' }}>
-            <Star className="w-6 h-6 text-yellow-500" />
-            <span className="font-semibold text-foreground">Quality Products</span>
-        </div>
-      </div>
       <div className="relative flex flex-col items-center">
+        <div className="mb-12 flex flex-col md:flex-row gap-4 items-center justify-center">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-card border shadow-sm animate-fade-in-up" style={{ animationDelay: '2.2s' }}>
+                <BadgePercent className="w-6 h-6 text-primary" />
+                <span className="font-semibold text-foreground">Best Deals</span>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-card border shadow-sm animate-fade-in-up" style={{ animationDelay: '2.4s' }}>
+                <Gift className="w-6 h-6 text-accent" />
+                <span className="font-semibold text-foreground">Exciting Rewards</span>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-card border shadow-sm animate-fade-in-up" style={{ animationDelay: '2.6s' }}>
+                <Star className="w-6 h-6 text-yellow-500" />
+                <span className="font-semibold text-foreground">Quality Products</span>
+            </div>
+        </div>
         <h1 className="font-headline text-5xl md:text-6xl text-primary animate-fade-in-down">
           Ramu Kaka Market
         </h1>
