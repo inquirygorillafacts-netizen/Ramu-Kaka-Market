@@ -6,7 +6,7 @@ export default function SplashScreen({ onAnimationComplete }: { onAnimationCompl
       className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground overflow-hidden font-sans animate-fade-out"
       onAnimationEnd={onAnimationComplete}
     >
-      <div className="relative flex flex-col items-center">
+      <div className="relative flex flex-col items-center text-center">
         <div className="mb-12 flex flex-col md:flex-row gap-4 items-center justify-center">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-card border shadow-sm animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                 <BadgePercent className="w-6 h-6 text-primary" />
@@ -24,7 +24,7 @@ export default function SplashScreen({ onAnimationComplete }: { onAnimationCompl
         <h1 className="font-headline text-5xl md:text-6xl text-primary animate-fade-in-down" style={{ animationDelay: '0.8s' }}>
           Ramu Kaka Market
         </h1>
-        <div className="mt-4 w-4/5 h-0.5 bg-border animate-draw-line" style={{ animationDelay: '1.3s' }} />
+        <div className="mt-4 w-4/5 h-0.5 bg-border animate-draw-line mx-auto" style={{ animationDelay: '1.3s' }} />
         
         <div className="mt-8 flex items-end space-x-6 h-16">
             <Apple className="w-10 h-10 text-red-500 animate-place-item-bounce" style={{ animationDelay: '1.8s' }} />
