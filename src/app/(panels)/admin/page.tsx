@@ -7,7 +7,7 @@ import { db, auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Users, AlertTriangle, Package, ShoppingBasket, PlusCircle, User, Truck, Star, Image as ImageIcon, Upload, MapPin } from 'lucide-react';
+import { Loader2, Users, AlertTriangle, Package, ShoppingBasket, PlusCircle, User, Truck, Star, Image as ImageIcon, Upload, MapPin, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Product, Order } from '@/lib/types';
 import NextImage from 'next/image';
 import Link from 'next/link';
+import OrderDetails from '@/components/OrderDetails';
 
 const IMGBB_API_KEY = '43d1267c74925ed8af33485644bfaa6b';
 
@@ -41,6 +42,8 @@ export default function AdminPage() {
   const [isRoleManagerOpen, setIsRoleManagerOpen] = useState(false);
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const { toast } = useToast();
   const [uploadingBanner, setUploadingBanner] = useState<string | null>(null);
 
@@ -178,6 +181,11 @@ export default function AdminPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Could not assign delivery personnel.' });
       }
   }
+
+  const handleViewDetails = (order: Order) => {
+    setSelectedOrder(order);
+    setIsDetailsOpen(true);
+  }
   
   const getMapUrl = (lat: string, lng: string) => `https://www.google.com/maps?q=${lat},${lng}`;
 
@@ -229,7 +237,8 @@ export default function AdminPage() {
                     <TableHead>Status</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead>Assign Delivery</TableHead>
+                    <TableHead>Assign</TableHead>
+                    <TableHead>Details</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -272,6 +281,11 @@ export default function AdminPage() {
                             <span>{order.deliveryPersonName}</span>
                           </div>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => handleViewDetails(order)}>
+                          <Eye className="w-4 h-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -431,6 +445,7 @@ export default function AdminPage() {
       
       {selectedUser && <RoleManager user={selectedUser} isOpen={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen} onSave={handleRolesUpdate} />}
       <ProductForm isOpen={isProductFormOpen} onOpenChange={setIsProductFormOpen} onProductAdded={() => {}} />
+      <OrderDetails isOpen={isDetailsOpen} onOpenChange={setIsDetailsOpen} order={selectedOrder} />
     </div>
   );
 }

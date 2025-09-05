@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
-import { Truck, Package, CheckCircle, Clock, PackageCheck, AlertTriangle, MapPin } from "lucide-react";
+import { Truck, Package, CheckCircle, Clock, PackageCheck, AlertTriangle, MapPin, Eye } from "lucide-react";
 import { useEffect, useState } from "react";
 import { onSnapshot, query, where, collection, doc, updateDoc, getDoc, Timestamp, orderBy } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
@@ -15,6 +15,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { UserProfile } from "@/app/(panels)/admin/RoleManager";
 import Link from 'next/link';
+import OrderDetails from "@/components/OrderDetails";
 
 export default function DeliveryPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -22,6 +23,8 @@ export default function DeliveryPage() {
   const [tasks, setTasks] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -87,6 +90,11 @@ export default function DeliveryPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to update status.' });
     }
   };
+
+  const handleViewDetails = (order: Order) => {
+    setSelectedOrder(order);
+    setIsDetailsOpen(true);
+  }
 
   const getMapUrl = (lat: string, lng: string) => `https://www.google.com/maps?q=${lat},${lng}`;
 
@@ -190,12 +198,10 @@ export default function DeliveryPage() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <p className="font-medium mb-2">Items:</p>
-                        <ul className="list-disc list-inside text-sm text-muted-foreground">
-                            {task.items.map(item => (
-                                <li key={item.id}>{item.name} (x{item.quantity})</li>
-                            ))}
-                        </ul>
+                        <Button variant="outline" size="sm" onClick={() => handleViewDetails(task)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                        </Button>
                     </CardContent>
                     <CardFooter className="bg-muted/50 p-4 flex justify-between items-center">
                         <p className="font-bold text-primary">Total: ₹{task.total.toFixed(2)}</p>
@@ -217,6 +223,7 @@ export default function DeliveryPage() {
           )}
         </CardContent>
       </Card>
+      <OrderDetails isOpen={isDetailsOpen} onOpenChange={setIsDetailsOpen} order={selectedOrder} />
     </div>
   );
 }

@@ -7,11 +7,12 @@ import { db, auth } from '@/lib/firebase';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from '@/hooks/use-toast';
 import { Order } from '@/lib/types';
-import { Loader2, Package, Truck, CheckCircle, Clock } from 'lucide-react';
+import { Loader2, Package, Truck, CheckCircle, Clock, Eye } from 'lucide-react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import OrderDetails from '@/components/OrderDetails';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -19,6 +20,8 @@ export default function OrdersPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
   const router = useRouter();
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
 
   useEffect(() => {
@@ -65,6 +68,11 @@ export default function OrdersPage() {
 
   }, [currentUser, toast]);
   
+  const handleViewDetails = (order: Order) => {
+    setSelectedOrder(order);
+    setIsDetailsOpen(true);
+  }
+
   const getStatusBadge = (status: string) => {
     switch(status) {
       case 'Pending': return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1"/>{status}</Badge>;
@@ -120,11 +128,18 @@ export default function OrdersPage() {
                                     <p className="text-sm text-muted-foreground">{order.items.length} items</p>
                                 </div>
                             </div>
+                            <CardContent className="p-0 pt-4">
+                                <Button variant="outline" size="sm" onClick={() => handleViewDetails(order)}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    View Details
+                                </Button>
+                            </CardContent>
                         </Card>
                     ))}
                 </div>
             )}
         </div>
+        <OrderDetails isOpen={isDetailsOpen} onOpenChange={setIsDetailsOpen} order={selectedOrder} />
     </div>
   );
 }
