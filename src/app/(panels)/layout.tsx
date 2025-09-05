@@ -1,8 +1,9 @@
+
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Home, LayoutDashboard, Settings, ShoppingCart, Users, Package } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Home, LayoutDashboard, Settings, ShoppingCart, Users, Package, LogOut } from "lucide-react";
 import {
   SidebarProvider,
   Sidebar,
@@ -18,10 +19,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { useEffect, useState } from "react";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
 
-interface MockUser {
+interface UserProfile {
+  uid: string;
   name: string;
+  email: string | null;
   roles: string[];
+  photoUrl?: string;
 }
 
 export default function DashboardLayout({
@@ -30,22 +38,75 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [user, setUser] = useState<MockUser | null>(null);
+  const router = useRouter();
+  const { toast } = useToast();
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('ramukaka_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const profile: UserProfile = {
+            uid: firebaseUser.uid,
+            name: userData.name,
+            email: firebaseUser.email,
+            roles: userData.roles || ['customer'],
+            photoUrl: userData.photoUrl,
+          };
+          setUser(profile);
+          
+          const currentPanel = pathname.split('/')[1];
+          if (!profile.roles.includes(currentPanel)) {
+              // If user tries to access a panel they don't have a role for, redirect them
+              router.push(`/${profile.roles[0]}`);
+          }
+
+        } else {
+          // No user data in Firestore, something is wrong
+          await signOut(auth);
+          router.push('/auth');
+        }
+      } else {
+        // Not logged in
+        router.push('/auth');
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [pathname, router]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      localStorage.removeItem('ramukaka_user');
+      toast({ title: "Logged Out", description: "You have been successfully logged out." });
+      router.push('/auth');
+    } catch (error) {
+      toast({ variant: "destructive", title: "Logout Failed", description: "Something went wrong." });
     }
-  }, []);
+  };
 
   const getInitials = (name: string = "") => {
-    return name.split(' ').map(n => n[0]).join('');
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
   }
 
   const userRoles = user?.roles || [];
   const canSeeCustomer = userRoles.includes('customer');
   const canSeeAdmin = userRoles.includes('admin');
+  const canSeeDelivery = userRoles.includes('delivery');
+
 
   return (
     <SidebarProvider>
@@ -83,13 +144,24 @@ export default function DashboardLayout({
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+               {/* Placeholder for Delivery Panel */}
+              {canSeeDelivery && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/delivery"}>
+                    <Link href="/delivery">
+                      <Users />
+                      <span className="truncate">Delivery Panel</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="space-y-2">
             {user && (
               <div className="flex items-center gap-3 p-2">
                 <Avatar>
-                  <AvatarImage data-ai-hint="person portrait" src={`https://picsum.photos/seed/${user.name}/40`} />
+                  <AvatarImage data-ai-hint="person portrait" src={user.photoUrl || `https://picsum.photos/seed/${user.name}/40`} />
                   <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col group-data-[collapsible=icon]:hidden">
@@ -99,6 +171,12 @@ export default function DashboardLayout({
               </div>
             )}
             <SidebarMenu>
+               <SidebarMenuItem>
+                  <SidebarMenuButton onClick={handleLogout}>
+                    <LogOut />
+                    <span>Logout</span>
+                  </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <Link href="/">

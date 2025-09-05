@@ -7,8 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Phone, Mail, Lock } from 'lucide-react';
+import { User, Phone, Mail, Lock, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { auth, db } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(false);
@@ -19,6 +22,7 @@ export default function AuthPage() {
     mobile: '',
     email: '',
     password: '',
+    photoUrl: '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,10 +30,51 @@ export default function AuthPage() {
     setFormData(prev => ({ ...prev, [id]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    // Basic validation
+  const handleRegister = async () => {
+    if (!formData.name || !formData.mobile || !formData.email || !formData.password) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Please fill all fields for registration.',
+      });
+      return;
+    }
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      const user = userCredential.user;
+
+      // Now, save user info to Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        name: formData.name,
+        email: formData.email,
+        mobile: formData.mobile,
+        photoUrl: formData.photoUrl,
+        roles: ['customer'], // Default role
+      });
+
+      localStorage.setItem('ramukaka_user', JSON.stringify({
+        uid: user.uid,
+        name: formData.name,
+        email: formData.email,
+        roles: ['customer'],
+      }));
+      
+      toast({
+        title: 'Success!',
+        description: 'You have successfully registered.',
+      });
+      router.push('/customer');
+
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Registration Failed',
+        description: error.message,
+      });
+    }
+  };
+
+  const handleLogin = async () => {
     if (!formData.email || !formData.password) {
       toast({
         variant: 'destructive',
@@ -38,34 +83,52 @@ export default function AuthPage() {
       });
       return;
     }
-    if (!isLogin && (!formData.name || !formData.mobile)) {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      const user = userCredential.user;
+      
+      // Get user roles from Firestore
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const userRoles = userData.roles || ['customer'];
+
+        localStorage.setItem('ramukaka_user', JSON.stringify({
+          uid: user.uid,
+          name: userData.name,
+          email: user.email,
+          roles: userRoles,
+        }));
+        
         toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'Please fill all fields for registration.',
+          title: 'Success!',
+          description: 'You have successfully logged in.',
         });
-        return;
+
+        if (userRoles.includes('admin')) {
+          router.push('/admin');
+        } else {
+          router.push('/customer');
+        }
+      } else {
+        throw new Error("User data not found in database.");
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: error.message,
+      });
     }
+  };
 
-    // In a real app, this is where you'd call Firebase Auth
-    console.log(`${isLogin ? 'Logging in' : 'Registering'} user:`, formData);
-    
-    // Mock user object for demonstration
-    const mockUser = {
-      name: isLogin ? 'Priya' : formData.name, // Use a default name on login for now
-      roles: ['customer'], // Default role
-    };
-
-    // Store mock user in localStorage to simulate session
-    localStorage.setItem('ramukaka_user', JSON.stringify(mockUser));
-    
-    toast({
-      title: `Success!`,
-      description: `You have successfully ${isLogin ? 'logged in' : 'registered'}.`,
-    });
-
-    // Redirect to the customer dashboard
-    router.push('/customer');
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (isLogin) {
+      handleLogin();
+    } else {
+      handleRegister();
+    }
   };
 
   return (
@@ -95,6 +158,13 @@ export default function AuthPage() {
                     <div className="relative">
                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                          <Input id="mobile" type="tel" placeholder="e.g. 9876543210" required className="pl-10" value={formData.mobile} onChange={handleChange} />
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="photoUrl">Photo URL (Optional)</Label>
+                    <div className="relative">
+                         <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                         <Input id="photoUrl" type="text" placeholder="https://example.com/photo.jpg" className="pl-10" value={formData.photoUrl} onChange={handleChange} />
                     </div>
                 </div>
               </>

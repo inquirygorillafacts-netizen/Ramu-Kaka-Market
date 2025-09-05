@@ -1,0 +1,27 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+  
+    // Users can only read/write their own user document
+    match /users/{userId} {
+      allow read, update, delete: if request.auth.uid == userId;
+      allow create: if request.auth.uid != null;
+    }
+    
+    // Allow admins to read/write any user document
+    match /users/{userId} {
+      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']);
+    }
+
+    // You would add rules for other collections here
+    // For example, for a 'products' collection:
+    match /products/{productId} {
+      // Allow anyone to read products
+      allow read: if true;
+      // Only allow admins to create, update, or delete products
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']);
+    }
+  }
+}

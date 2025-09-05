@@ -4,29 +4,35 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import SplashScreen from '@/components/SplashScreen';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
-      // Here you would check for user's auth status
-      const isLoggedIn = false; // Replace with actual check
+    const handleAnimationComplete = () => {
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          // In a real app, you might want to check roles here
+          router.push('/customer');
+        } else {
+          router.push('/auth');
+        }
+      });
+    };
+    
+    // This is a proxy for the animation completing
+    const timer = setTimeout(() => {
+        setLoading(false);
+        handleAnimationComplete();
+    }, 3200); // Corresponds to the longest animation duration
 
-      if (isLoggedIn) {
-        // For now, let's assume they have a default role and go to customer page
-        router.push('/customer');
-      } else {
-        router.push('/auth');
-      }
-    }
-  }, [loading, router]);
+    return () => clearTimeout(timer);
+  }, [router]);
 
-  if (loading) {
-    return <SplashScreen onAnimationComplete={() => setLoading(false)} />;
-  }
-  
-  // Render nothing, or a fallback loader, while redirecting
-  return null;
+  // The splash screen is shown based on the loading state
+  // When loading is false, the redirection logic in useEffect takes over.
+  return loading ? <SplashScreen onAnimationComplete={() => {}} /> : null;
 }
