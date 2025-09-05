@@ -24,14 +24,8 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { UserProfile } from "@/lib/types";
 
-interface UserProfile {
-  uid: string;
-  name: string;
-  email: string | null;
-  roles: { [key: string]: any };
-  photoUrl?: string;
-}
 
 export default function DashboardLayout({
   children,
@@ -51,7 +45,7 @@ export default function DashboardLayout({
         if (userDoc.exists()) {
           const userData = userDoc.data();
           const profile: UserProfile = {
-            uid: firebaseUser.uid,
+            id: firebaseUser.uid,
             name: userData.name,
             email: firebaseUser.email,
             roles: userData.roles || { customer: true },
@@ -62,7 +56,7 @@ export default function DashboardLayout({
           const currentPanel = pathname.split('/')[1];
           const userRoles = Object.keys(profile.roles);
 
-          if (!userRoles.includes(currentPanel)) {
+          if (currentPanel !== 'role-selection' && !userRoles.includes(currentPanel)) {
               toast({
                 variant: 'destructive',
                 title: 'Access Denied',
@@ -74,6 +68,7 @@ export default function DashboardLayout({
           }
 
         } else {
+          // This case might happen if user is deleted from firestore but not auth
           await signOut(auth);
           router.push('/auth');
         }
@@ -88,7 +83,6 @@ export default function DashboardLayout({
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      localStorage.removeItem('ramukaka_user');
       toast({ title: "Logged Out", description: "You have been successfully logged out." });
       router.push('/auth');
     } catch (error) {
