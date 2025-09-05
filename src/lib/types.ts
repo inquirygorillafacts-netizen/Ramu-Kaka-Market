@@ -1,5 +1,4 @@
 
-
 export interface UserProfile {
     id: string;
     name: string;
@@ -41,5 +40,11 @@ export interface UserProfile {
     createdAt: Date;
     deliveryId?: string;
     deliveryPersonName?: string;
+  }
+
+  export interface Banner {
+    id: string;
+    imageUrl: string;
+    active: boolean;
   }
   
