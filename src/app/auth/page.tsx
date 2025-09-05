@@ -1,37 +1,19 @@
 
 'use client';
 
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Camera, User, Mail, Lock } from 'lucide-react';
-import Image from 'next/image';
+import { User, Phone, Mail, Lock } from 'lucide-react';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleCameraClick = () => {
-    fileInputRef.current?.click();
-  };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-8 bg-background animate-fade-in">
-      <Card className="w-full max-w-md shadow-2xl">
+    <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-8 bg-background">
+      <Card className="w-full max-w-md bg-background/80 backdrop-blur-sm border-primary/20 shadow-2xl animate-fade-in-down">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-headline text-primary">
             {isLogin ? 'Welcome Back!' : 'Create an Account'}
@@ -43,40 +25,22 @@ export default function AuthPage() {
         <CardContent>
           <form className="space-y-4">
             {!isLogin && (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="relative w-24 h-24 rounded-full border-2 border-dashed flex items-center justify-center bg-muted/50">
-                  {previewImage ? (
-                    <Image src={previewImage} alt="Profile preview" fill className="rounded-full object-cover" />
-                  ) : (
-                    <Camera className="w-8 h-8 text-muted-foreground" />
-                  )}
-                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute inset-0 w-full h-full rounded-full bg-black/20 opacity-0 hover:opacity-100 transition-opacity"
-                    onClick={handleCameraClick}
-                  >
-                    <Camera className="w-8 h-8 text-white" />
-                  </Button>
-                </div>
-                <Input
-                  ref={fileInputRef}
-                  type="file"
-                  id="photo"
-                  name="photo"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageChange}
-                />
-                 <div className="w-full space-y-2">
+              <>
+                <div className="space-y-2">
                     <Label htmlFor="name">Name</Label>
                     <div className="relative">
                          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                          <Input id="name" type="text" placeholder="e.g. Priya Sharma" required className="pl-10" />
                     </div>
                 </div>
-              </div>
+                <div className="space-y-2">
+                    <Label htmlFor="number">Mobile Number</Label>
+                    <div className="relative">
+                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                         <Input id="number" type="tel" placeholder="e.g. 9876543210" required className="pl-10" />
+                    </div>
+                </div>
+              </>
             )}
              <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
