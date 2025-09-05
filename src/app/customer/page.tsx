@@ -265,7 +265,7 @@ export default function CustomerPage() {
                             
                             <div className="aspect-square overflow-hidden">
                                 <Image 
-                                    src={product.images[0]} 
+                                    src={`https://picsum.photos/seed/${product.id}/200`}
                                     alt={product.name} 
                                     width={200} 
                                     height={200} 
