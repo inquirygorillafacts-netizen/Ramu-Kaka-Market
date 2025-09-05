@@ -126,11 +126,19 @@ export default function AuthPage() {
       router.push('/customer');
 
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Registration Failed',
-        description: error.message,
-      });
+       if (error.code === 'auth/email-already-in-use') {
+        toast({
+          variant: 'destructive',
+          title: 'Registration Failed',
+          description: 'This email is already registered. Please log in.',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Registration Failed',
+          description: error.message,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -274,5 +282,3 @@ export default function AuthPage() {
     </main>
   );
 }
-
-    
