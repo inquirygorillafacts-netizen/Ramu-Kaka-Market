@@ -34,6 +34,7 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
   const [name, setName] = useState('');
   const [category, setCategory] = useState<ProductCategory | ''>('');
   const [unit, setUnit] = useState('');
+  const [unitQuantity, setUnitQuantity] = useState('');
   const [keywords, setKeywords] = useState<string[]>([]);
   const [currentKeyword, setCurrentKeyword] = useState('');
   const [price, setPrice] = useState('');
@@ -49,6 +50,7 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
     setName('');
     setCategory('');
     setUnit('');
+    setUnitQuantity('');
     setKeywords([]);
     setCurrentKeyword('');
     setPrice('');
@@ -120,7 +122,7 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
   };
 
   const handleSubmit = async () => {
-    if (!name || !price || !unit || !category || photoFiles.length === 0) {
+    if (!name || !price || !unit || !unitQuantity || !category || photoFiles.length === 0) {
       toast({ variant: 'destructive', title: 'Missing fields', description: 'Please fill out all required fields and select at least one image.' });
       return;
     }
@@ -143,6 +145,7 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
         name: name,
         category: category,
         unit: unit,
+        unitQuantity: parseFloat(unitQuantity),
         keywords: keywords,
         price: parseFloat(price),
         discountPrice: discountPrice ? parseFloat(discountPrice) : null,
@@ -184,34 +187,39 @@ export default function ProductForm({ isOpen, onOpenChange, onProductAdded }: Pr
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSaving} placeholder="e.g. Fresh Apples"/>
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="category">Category</Label>
+            <Select value={category} onValueChange={(value) => setCategory(value as ProductCategory)} disabled={isSaving}>
+              <SelectTrigger id="category">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Vegetables">Vegetables</SelectItem>
+                <SelectItem value="Fruits">Fruits</SelectItem>
+                <SelectItem value="Grocery">Grocery</SelectItem>
+                <SelectItem value="Cafe">Cafe</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Select value={category} onValueChange={(value) => setCategory(value as ProductCategory)} disabled={isSaving}>
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Vegetables">Vegetables</SelectItem>
-                  <SelectItem value="Fruits">Fruits</SelectItem>
-                  <SelectItem value="Grocery">Grocery</SelectItem>
-                  <SelectItem value="Cafe">Cafe</SelectItem>
-                </SelectContent>
-              </Select>
+            <Label htmlFor="unit">Unit</Label>
+            <Select value={unit} onValueChange={setUnit} disabled={isSaving}>
+              <SelectTrigger id="unit">
+                <SelectValue placeholder="Select unit" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="kg">Kilogram (kg)</SelectItem>
+                <SelectItem value="gram">Gram (g)</SelectItem>
+                <SelectItem value="piece">Piece</SelectItem>
+                <SelectItem value="litre">Litre (l)</SelectItem>
+              </SelectContent>
+            </Select>
             </div>
              <div className="space-y-2">
-              <Label htmlFor="unit">Unit</Label>
-              <Select value={unit} onValueChange={setUnit} disabled={isSaving}>
-                <SelectTrigger id="unit">
-                  <SelectValue placeholder="Select unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="kg">Kilogram (kg)</SelectItem>
-                  <SelectItem value="gram">Gram (g)</SelectItem>
-                  <SelectItem value="piece">Piece</SelectItem>
-                  <SelectItem value="litre">Litre (l)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="unit-quantity">Unit Quantity</Label>
+              <Input id="unit-quantity" type="number" value={unitQuantity} onChange={(e) => setUnitQuantity(e.target.value)} disabled={isSaving} placeholder="e.g. 1 or 500"/>
             </div>
           </div>
 

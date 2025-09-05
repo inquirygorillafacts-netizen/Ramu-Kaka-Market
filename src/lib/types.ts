@@ -28,6 +28,7 @@ export interface UserProfile {
     price: number;
     images: string[];
     unit: 'kg' | 'gram' | 'piece' | 'litre';
+    unitQuantity: number;
     category: ProductCategory;
     keywords?: string[];
     discountPrice?: number | null;

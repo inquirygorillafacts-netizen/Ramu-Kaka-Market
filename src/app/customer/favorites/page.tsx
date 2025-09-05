@@ -86,7 +86,7 @@ export default function FavoritesPage() {
 
               <div className="p-3 space-y-2">
                 <h3 className="font-semibold text-sm truncate">{product.name}</h3>
-                <p className="text-xs text-muted-foreground">{product.unit}</p>
+                <p className="text-xs text-muted-foreground">per {product.unitQuantity} {product.unit}</p>
                 <div className="flex justify-between items-center">
                   <div className="font-bold text-base">
                     {product.discountPrice ? (

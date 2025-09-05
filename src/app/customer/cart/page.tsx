@@ -139,13 +139,20 @@ export default function CartPage() {
           return;
       }
       
-      // If form is not filled, open it.
-      if (!orderData.name || !orderData.mobile || !orderData.address) {
+      // Always open the dialog if it's not already open
+      if (!isCheckoutDialogOpen) {
           setIsCheckoutDialogOpen(true);
           return;
       }
       
+      // If dialog is open and form is not filled, show a toast.
+      if (!orderData.name || !orderData.mobile || !orderData.address) {
+          toast({ variant: 'destructive', title: 'Information Missing', description: 'Please fill all address and contact details.' });
+          return;
+      }
+      
       // If form is filled, proceed with payment logic
+      setIsCheckoutDialogOpen(false); // Close the checkout dialog first
       if (orderData.paymentMethod === 'Online') {
           await initiateOnlinePayment();
       } else { // COD
@@ -164,19 +171,15 @@ export default function CartPage() {
         return;
     }
 
-    if (orderData.paymentMethod === 'Online') {
-         setIsCheckoutDialogOpen(false);
-         initiateOnlinePayment();
-    } else { // COD
-        setIsCheckoutDialogOpen(false);
-        if (!hasShownPromo) {
-            setIsPromoDialogOpen(true);
-            setHasShownPromo(true); // Mark that promo has been shown for this attempt
-        } else {
-            // If promo was already shown, just place the order
-            saveOrderToFirebase('COD');
-        }
-    }
+    setIsCheckoutDialogOpen(false); // Close the form dialog
+
+    // Now, let the user click the main button again to confirm their choice.
+    // If they chose COD, the next click on "Order Now" will show the promo.
+    // If they chose Online, the next click will initiate payment.
+    toast({
+      title: 'Details Confirmed',
+      description: 'Click "Order Now" again to finalize your order.'
+    });
   }
 
   const initiateOnlinePayment = async () => {
@@ -307,7 +310,7 @@ export default function CartPage() {
                         <Image src={item.images[0]} alt={item.name} width={80} height={80} className="rounded-lg object-cover aspect-square"/>
                         <div className="flex-grow">
                             <h3 className="font-semibold">{item.name}</h3>
-                            <p className="text-sm text-muted-foreground">per {item.unit}</p>
+                            <p className="text-sm text-muted-foreground">per {item.unitQuantity} {item.unit}</p>
                             <p className="font-bold mt-1">₹{(item.discountPrice ?? item.price).toFixed(2)}</p>
                         </div>
                         <div className="flex flex-col items-end gap-2">
@@ -342,7 +345,7 @@ export default function CartPage() {
                 </div>
             </div>
 
-            <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={() => setIsCheckoutDialogOpen(true)}>
+            <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={handleOrderNowClick}>
               {placingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShoppingBasket className="mr-2 h-5 w-5"/>}
               {placingOrder ? 'Placing Order...' : 'Order Now'}
             </Button>

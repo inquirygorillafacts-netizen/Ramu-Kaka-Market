@@ -75,7 +75,7 @@ export default function OrderDetails({ order, isOpen, onOpenChange }: OrderDetai
                   <p className="font-medium">
                     ₹{(item.discountPrice ?? item.price).toFixed(2)}
                   </p>
-                  <p className="text-xs text-muted-foreground">per {item.unit}</p>
+                  <p className="text-xs text-muted-foreground">per {item.unitQuantity} {item.unit}</p>
                 </div>
               </div>
             ))}

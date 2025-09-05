@@ -326,7 +326,7 @@ export default function AdminPage() {
                           <NextImage src={product.images[0]} alt={product.name} width={48} height={48} className="w-12 h-12 object-cover rounded-md" />
                         ) : <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center text-muted-foreground">?</div> }
                       </TableCell>
-                      <TableCell className="font-medium">{product.name} <span className="text-muted-foreground text-xs">({product.unit})</span></TableCell>
+                      <TableCell className="font-medium">{product.name} <span className="text-muted-foreground text-xs">({product.unitQuantity} {product.unit})</span></TableCell>
                       <TableCell><Badge variant="outline">{product.category}</Badge></TableCell>
                       <TableCell>
                         {product.discountPrice ? (
