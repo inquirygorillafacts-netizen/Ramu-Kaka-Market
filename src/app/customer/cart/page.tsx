@@ -131,7 +131,7 @@ export default function CartPage() {
     }, 0);
   };
   
-  const handleOrderNowClick = async () => {
+  const handleOrderNowClick = () => {
       if (placingOrder) return;
       
       if (!currentUser) {
@@ -139,35 +139,32 @@ export default function CartPage() {
           return;
       }
       
-      // If form details are not filled, always open the dialog first
-      if (!orderData.name || !orderData.mobile || !orderData.address || !orderData.pincode) {
-          setIsCheckoutDialogOpen(true);
-          return;
-      }
-      
-      // Details are filled, proceed based on payment method
-      if (orderData.paymentMethod === 'Online') {
-          await initiateOnlinePayment();
-      } else { // COD
-          if (!hasShownPromo) {
-            setIsPromoDialogOpen(true);
-            setHasShownPromo(true);
-          } else {
-            setIsCodConfirmOpen(true);
-          }
-      }
+      // Always open the checkout dialog to confirm/enter details
+      setIsCheckoutDialogOpen(true);
   };
 
-  const handleDetailsSubmit = () => {
+  const handleDetailsSubmit = async () => {
     if (!orderData.name || !orderData.mobile || !orderData.address || !orderData.pincode) {
         toast({ variant: 'destructive', title: 'Information Missing', description: 'Please fill all address and contact details.' });
         return;
     }
+    
+    // Close the details form
     setIsCheckoutDialogOpen(false); 
-    toast({
-      title: 'Details Confirmed',
-      description: 'Click "Order Now" again to finalize your order.'
-    });
+
+    // Now proceed based on the chosen payment method
+    if (orderData.paymentMethod === 'Online') {
+        await initiateOnlinePayment();
+    } else { // COD
+        // For COD, show the promotional pop-up if it hasn't been shown.
+        if (!hasShownPromo) {
+          setIsPromoDialogOpen(true);
+          setHasShownPromo(true); // Mark as shown for this attempt
+        } else {
+          // If promo was already shown (e.g., user closed it), go to final confirm
+          setIsCodConfirmOpen(true);
+        }
+    }
   }
 
   const initiateOnlinePayment = async () => {
@@ -500,3 +497,4 @@ export default function CartPage() {
 
 }
 
+    
