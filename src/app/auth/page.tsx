@@ -104,19 +104,21 @@ export default function AuthPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
+      const userRoles = { customer: true };
+
       await setDoc(doc(db, 'users', user.uid), {
         name: formData.name,
         email: formData.email,
         mobile: formData.mobile,
         photoUrl: photoUrl,
-        roles: ['customer'], // Default role
+        roles: userRoles, // Default role
       });
 
       localStorage.setItem('ramukaka_user', JSON.stringify({
         uid: user.uid,
         name: formData.name,
         email: formData.email,
-        roles: ['customer'],
+        roles: userRoles,
       }));
       
       toast({
@@ -161,7 +163,7 @@ export default function AuthPage() {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        const userRoles = userData.roles || ['customer'];
+        const userRoles = userData.roles || { customer: true };
 
         localStorage.setItem('ramukaka_user', JSON.stringify({
           uid: user.uid,
@@ -175,7 +177,7 @@ export default function AuthPage() {
           description: 'You have successfully logged in.',
         });
 
-        if (userRoles.includes('admin')) {
+        if (userRoles.admin) {
           router.push('/admin');
         } else {
           router.push('/customer');

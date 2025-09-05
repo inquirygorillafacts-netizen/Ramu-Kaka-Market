@@ -28,7 +28,7 @@ interface UserProfile {
   uid: string;
   name: string;
   email: string | null;
-  roles: string[];
+  roles: { [key: string]: any };
   photoUrl?: string;
 }
 
@@ -53,15 +53,23 @@ export default function DashboardLayout({
             uid: firebaseUser.uid,
             name: userData.name,
             email: firebaseUser.email,
-            roles: userData.roles || ['customer'],
+            roles: userData.roles || { customer: true },
             photoUrl: userData.photoUrl,
           };
           setUser(profile);
           
           const currentPanel = pathname.split('/')[1];
-          if (!profile.roles.includes(currentPanel)) {
+          const userRoles = Object.keys(profile.roles);
+
+          if (!userRoles.includes(currentPanel)) {
               // If user tries to access a panel they don't have a role for, redirect them
-              router.push(`/${profile.roles[0]}`);
+              if (userRoles.includes('admin')) {
+                router.push('/admin');
+              } else if (userRoles.includes('delivery')) {
+                router.push('/delivery');
+              } else {
+                router.push('/customer');
+              }
           }
 
         } else {
@@ -102,7 +110,7 @@ export default function DashboardLayout({
     );
   }
 
-  const userRoles = user?.roles || [];
+  const userRoles = user?.roles ? Object.keys(user.roles) : [];
   const canSeeCustomer = userRoles.includes('customer');
   const canSeeAdmin = userRoles.includes('admin');
   const canSeeDelivery = userRoles.includes('delivery');
@@ -166,7 +174,7 @@ export default function DashboardLayout({
                 </Avatar>
                 <div className="flex flex-col group-data-[collapsible=icon]:hidden">
                   <span className="font-semibold text-sm">{user.name}</span>
-                  <span className="text-xs text-muted-foreground">{user.roles.join(', ')}</span>
+                  <span className="text-xs text-muted-foreground">{Object.keys(user.roles).join(', ')}</span>
                 </div>
               </div>
             )}
