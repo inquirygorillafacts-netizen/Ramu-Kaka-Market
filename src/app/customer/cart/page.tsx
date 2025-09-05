@@ -163,9 +163,20 @@ export default function CartPage() {
         toast({ variant: 'destructive', title: 'Information Missing', description: 'Please fill all address and contact details.' });
         return;
     }
-    setIsCheckoutDialogOpen(false);
-    // Now user needs to click "Order Now" again
-    toast({ title: "Details Confirmed", description: "Click 'Order Now' again to place your order." });
+
+    if (orderData.paymentMethod === 'Online') {
+         setIsCheckoutDialogOpen(false);
+         initiateOnlinePayment();
+    } else { // COD
+        setIsCheckoutDialogOpen(false);
+        if (!hasShownPromo) {
+            setIsPromoDialogOpen(true);
+            setHasShownPromo(true); // Mark that promo has been shown for this attempt
+        } else {
+            // If promo was already shown, just place the order
+            saveOrderToFirebase('COD');
+        }
+    }
   }
 
   const initiateOnlinePayment = async () => {
@@ -331,7 +342,7 @@ export default function CartPage() {
                 </div>
             </div>
 
-            <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={handleOrderNowClick}>
+            <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={() => setIsCheckoutDialogOpen(true)}>
               {placingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShoppingBasket className="mr-2 h-5 w-5"/>}
               {placingOrder ? 'Placing Order...' : 'Order Now'}
             </Button>
@@ -439,6 +450,10 @@ export default function CartPage() {
             <Dialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
                 <DialogContent className="max-w-md">
                      <DialogHeader>
+                        <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                            <X className="h-4 w-4" />
+                            <span className="sr-only">Close</span>
+                        </DialogClose>
                         <div className="flex justify-center mb-4">
                             <div className="p-3 bg-yellow-100 rounded-full">
                                 <Gift className="w-10 h-10 text-yellow-500" />
@@ -457,8 +472,11 @@ export default function CartPage() {
                          </div>
                     </DialogHeader>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => { setIsPromoDialogOpen(false); toast({ title: "COD Selected", description: "Click 'Order Now' again to confirm."}) }}>
-                            बाद में
+                       <Button variant="outline" onClick={() => { saveOrderToFirebase('COD'); }}>
+                            COD से भुगतान करें
+                        </Button>
+                        <Button onClick={() => { setIsPromoDialogOpen(false); initiateOnlinePayment(); }}>
+                           ऑनलाइन भुगतान करें और जीतें
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -470,3 +488,5 @@ export default function CartPage() {
   );
 
 }
+
+    
