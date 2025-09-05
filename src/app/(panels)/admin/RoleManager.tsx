@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input';
+import { Input } from "@/components/ui/input";
 import { Loader2, ShieldCheck, Truck } from 'lucide-react';
 
 export interface UserProfile {
