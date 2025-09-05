@@ -3,9 +3,7 @@ import { Apple, Carrot, Milk, Wheat, Lollipop, BadgePercent, Gift, Star } from '
 export default function SplashScreen({ onAnimationComplete }: { onAnimationComplete: () => void }) {
   return (
     <div 
-      className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground overflow-hidden font-sans animate-fade-out"
-      style={{ animationDuration: '2.8s' }}
-      onAnimationEnd={onAnimationComplete}
+      className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground overflow-hidden font-sans"
     >
       <div className="relative flex flex-col items-center text-center p-4">
         <div className="mb-8 flex flex-col sm:flex-row gap-4 items-center justify-center">
@@ -32,7 +30,7 @@ export default function SplashScreen({ onAnimationComplete }: { onAnimationCompl
             <Carrot className="w-12 h-12 text-orange-500 animate-place-item-bounce" style={{ animationDelay: '2.0s' }} />
             <Milk className="w-10 h-10 text-blue-400 animate-place-item-bounce" style={{ animationDelay: '2.2s' }} />
             <Wheat className="w-12 h-12 text-yellow-500 animate-place-item-bounce" style={{ animationDelay: '2.4s' }} />
-            <Lollipop className="w-10 h-10 text-pink-500 animate-place-item-bounce" style={{ animationDelay: '2.6s' }} />
+            <Lollipop onAnimationEnd={onAnimationComplete} className="w-10 h-10 text-pink-500 animate-place-item-bounce" style={{ animationDelay: '2.6s' }} />
         </div>
       </div>
     </div>
