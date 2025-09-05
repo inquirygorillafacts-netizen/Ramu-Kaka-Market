@@ -98,14 +98,14 @@ export default {
           to: { opacity: '1', transform: 'translateY(0)' },
         },
         'cart-slide': {
-          '0%': { transform: 'translateX(-200px) rotate(-30deg)', opacity: '0'},
+          '0%': { transform: 'translateX(-250px) rotate(-45deg)', opacity: '0'},
           '70%': { transform: 'translateX(0) rotate(0)', opacity: '1'},
           '100%': { transform: 'translateX(0) rotate(0)', opacity: '1'}
         },
        'fly-in': {
-          '0%': { transform: 'translateY(-100px) scale(0)', opacity: '0'},
+          '0%': { transform: 'translateY(-150px) scale(0.2)', opacity: '0'},
           '50%': { opacity: '1' },
-          '100%': { transform: 'translate(100px, 120px) scale(0.5)', opacity: '0'}
+          '100%': { transform: 'translate(100px, 120px) scale(0.6)', opacity: '0'}
         },
         'title-fade': {
           '0%': { opacity: '0' },
@@ -118,8 +118,8 @@ export default {
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-in': 'fade-in 1s ease-out forwards',
         'fade-in-up': 'fade-in-up 0.5s ease-out forwards',
-        'cart-slide': 'cart-slide 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards 0.5s',
-        'fly-in': 'fly-in 1.2s ease-in-out forwards',
+        'cart-slide': 'cart-slide 1.8s cubic-bezier(0.25, 1, 0.5, 1) forwards 0.5s',
+        'fly-in': 'fly-in 1.5s ease-in-out forwards',
         'title-fade': 'title-fade 2s ease-out forwards'
       },
     },
