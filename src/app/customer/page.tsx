@@ -74,12 +74,13 @@ export default function CustomerPage() {
     const q = query(
         collection(db, 'orders'),
         where('customerId', '==', currentUser.uid),
-        where('customerHasViewedUpdate', '==', false),
-        orderBy('createdAt', 'desc')
+        where('customerHasViewedUpdate', '==', false)
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const unseenOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
         setNotifications(unseenOrders);
+    }, (error) => {
+        console.error("Notification listener error:", error);
     });
 
     return () => unsubscribe();
