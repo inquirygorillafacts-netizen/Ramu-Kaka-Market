@@ -74,9 +74,12 @@ export default function CustomerPage() {
   useEffect(() => {
     // Orders
     if (!currentUser) return;
-    const orderQuery = query(collection(db, 'orders'), where('customerId', '==', currentUser.uid), orderBy('createdAt', 'desc'));
+    const orderQuery = query(collection(db, 'orders'), where('customerId', '==', currentUser.uid));
     const unsubscribeOrders = onSnapshot(orderQuery, (snapshot) => {
-      setOrders(snapshot.docs.map(doc => ({...doc.data(), id: doc.id, createdAt: (doc.data().createdAt as Timestamp).toDate() } as Order)));
+      const fetchedOrders = snapshot.docs.map(doc => ({...doc.data(), id: doc.id, createdAt: (doc.data().createdAt as Timestamp).toDate() } as Order));
+      // Sort orders on the client-side
+      const sortedOrders = fetchedOrders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      setOrders(sortedOrders);
     });
     return () => unsubscribeOrders();
   }, [currentUser]);
@@ -127,11 +130,11 @@ export default function CustomerPage() {
         </div>
 
         {/* Banner 1 */}
-        <Card className="aspect-video w-full overflow-hidden">
+        <Card className="aspect-video w-full overflow-hidden relative bg-muted">
              {getBannerUrl('banner1') ? (
                 <Image src={getBannerUrl('banner1')!} alt="Promotional Banner 1" fill className="object-cover"/>
              ) : (
-                <div className="flex items-center justify-center h-full bg-muted text-muted-foreground">Banner 1</div>
+                <div className="flex items-center justify-center h-full text-muted-foreground">Banner 1</div>
              )}
         </Card>
 
@@ -143,11 +146,11 @@ export default function CustomerPage() {
         </div>
 
         {/* Banner 2 */}
-        <Card className="aspect-[16/6] w-full overflow-hidden">
+        <Card className="aspect-[16/6] w-full overflow-hidden relative bg-muted">
              {getBannerUrl('banner2') ? (
                 <Image src={getBannerUrl('banner2')!} alt="Promotional Banner 2" fill className="object-cover"/>
              ) : (
-                <div className="flex items-center justify-center h-full bg-muted text-muted-foreground">Banner 2</div>
+                <div className="flex items-center justify-center h-full text-muted-foreground">Banner 2</div>
              )}
         </Card>
 
