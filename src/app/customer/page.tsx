@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 export default function CustomerPage() {
   const [products, setProducts] = useState<Product[]>([]);
