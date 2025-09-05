@@ -11,9 +11,7 @@ export default {
     extend: {
       fontFamily: {
         body: ['Inter', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
-        highlight: ['Playfair Display', 'serif'],
-        code: ['monospace'],
+        headline: ['Playfair Display', 'serif'],
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -125,7 +123,7 @@ export default {
         'fade-in': 'fade-in 1s ease-in-out forwards',
         'fade-out': 'fade-out 0.2s 2.6s ease-out forwards',
         'fade-in-up': 'fade-in-up 0.5s ease-out forwards',
-        'fade-in-down': 'fade-in-down 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'fade-in-down': 'fade-in-down 0.5s ease-out forwards',
         'draw-line': 'draw-line 1s ease-out forwards',
         'place-item': 'place-item 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
         'place-item-bounce': 'place-item-bounce 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
