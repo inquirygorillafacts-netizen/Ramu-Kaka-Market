@@ -4,11 +4,11 @@ export default function SplashScreen({ onAnimationComplete }: { onAnimationCompl
   return (
     <div 
       className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground overflow-hidden font-sans animate-fade-out"
-      style={{ animationDuration: '3.5s' }}
+      style={{ animationDuration: '2.8s' }}
       onAnimationEnd={onAnimationComplete}
     >
-      <div className="relative flex flex-col items-center text-center">
-        <div className="mb-12 flex flex-col md:flex-row gap-4 items-center justify-center">
+      <div className="relative flex flex-col items-center text-center p-4">
+        <div className="mb-8 flex flex-col sm:flex-row gap-4 items-center justify-center">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-card border shadow-sm animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
                 <BadgePercent className="w-6 h-6 text-primary" />
                 <span className="font-semibold text-foreground">Best Deals</span>
