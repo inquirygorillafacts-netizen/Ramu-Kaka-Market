@@ -2,13 +2,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, User, Users, Shield, Truck } from 'lucide-react';
+import { Loader2, Users, Shield, User, Truck, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
 interface UserProfile {
   id: string;
@@ -25,35 +27,57 @@ export default function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        const usersCollection = collection(db, 'users');
-        const userSnapshot = await getDocs(usersCollection);
-        const usersList = userSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as UserProfile));
-        setUsers(usersList);
-        setError(null);
-      } catch (err) {
-        console.error("Error fetching users:", err);
-        setError("Failed to load user data. Please try again.");
-      } finally {
-        setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, async (user: FirebaseUser | null) => {
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists() && userDoc.data().roles.admin) {
+          setIsAdmin(true);
+          fetchUsers();
+        } else {
+          setIsAdmin(false);
+          setLoading(false);
+        }
+      } else {
+        router.push('/auth');
       }
-    };
+    });
+     return () => unsubscribe();
+  }, [router]);
 
-    fetchUsers();
-  }, []);
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const usersCollection = collection(db, 'users');
+      const userSnapshot = await getDocs(usersCollection);
+      const usersList = userSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as UserProfile));
+      setUsers(usersList);
+      setError(null);
+    } catch (err: any) {
+      console.error("Error fetching users:", err);
+      if (err.code === 'permission-denied') {
+          setError("You do not have permission to view this page.");
+      } else {
+          setError("Failed to load user data. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const renderRoles = (roles: UserProfile['roles']) => {
-    return Object.keys(roles).map(role => {
+    return Object.entries(roles).map(([role, value]) => {
       let roleId = '';
-      if (role === 'admin' && roles.admin) roleId = `(${roles.admin.adminId})`;
-      if (role === 'delivery' && roles.delivery) roleId = `(${roles.delivery.deliveryId})`;
+      if (role === 'admin' && typeof value === 'object' && value.adminId) roleId = `(${value.adminId})`;
+      if (role === 'delivery' && typeof value === 'object' && value.deliveryId) roleId = `(${value.deliveryId})`;
       
       const variant = role === 'admin' ? 'destructive' : role === 'delivery' ? 'secondary' : 'default';
 
@@ -64,6 +88,27 @@ export default function AdminPage() {
       );
     });
   }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="ml-2 text-muted-foreground">Verifying access & loading users...</p>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+     return (
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <AlertTriangle className="w-16 h-16 text-destructive" />
+        <h2 className="text-2xl font-bold">Access Denied</h2>
+        <p className="text-muted-foreground">You must be an administrator to view this page.</p>
+        <Button onClick={() => router.push('/role-selection')}>Back to Gates</Button>
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-8">
@@ -81,12 +126,7 @@ export default function AdminPage() {
           <CardDescription>A list of all users in the system. You can manage their roles here.</CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="ml-2 text-muted-foreground">Loading users...</p>
-            </div>
-          ) : error ? (
+          {error ? (
             <div className="text-destructive text-center h-64 flex items-center justify-center">
               <p>{error}</p>
             </div>
