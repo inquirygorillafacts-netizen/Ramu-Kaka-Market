@@ -35,7 +35,7 @@ export default function CartPage() {
   const [orderData, setOrderData] = useState({ name: '', mobile: '', address: '', pincode: '', village: '', paymentMethod: 'COD' as 'COD' | 'Online'});
   const [loading, setLoading] = useState(true);
   const [placingOrder, setPlacingOrder] = useState(false);
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
   const [isPromoDialogOpen, setIsPromoDialogOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
@@ -128,25 +128,41 @@ export default function CartPage() {
         return;
     }
     
-    setIsConfirmOpen(false); // Close details dialog first
+    setIsCheckoutDialogOpen(false); 
 
     if (orderData.paymentMethod === 'COD') {
-        setIsPromoDialogOpen(true); // Open promo dialog for COD
+        setIsPromoDialogOpen(true);
     } else {
-        await initiateOnlinePayment(); // Proceed directly to payment for Online
+        await initiateOnlinePayment();
+    }
+  }
+  
+  const handlePromoChoice = (choice: 'COD' | 'Online') => {
+      setIsPromoDialogOpen(false);
+      setOrderData(prev => ({...prev, paymentMethod: choice}));
+
+      if(choice === 'Online') {
+        toast({
+            title: 'बहुत बढ़िया!',
+            description: "अब आप भी जीतने की दौड़ में शामिल हैं।",
+        });
+      }
+      
+      // Now the user has to click the main "Place Order" button again to proceed.
+  }
+  
+  const handlePlaceOrderClick = async () => {
+    // This is the final confirmation click
+    if(orderData.paymentMethod === 'COD') {
+      await saveOrderToFirebase('COD');
+    } else {
+      await initiateOnlinePayment();
     }
   }
 
-  const handleOnlinePaymentChoice = () => {
-    setIsPromoDialogOpen(false);
-    toast({
-      title: 'बहुत बढ़िया!',
-      description: "अब आप भी जीतने की दौड़ में शामिल हैं।",
-    });
-    initiateOnlinePayment();
-  }
 
   const initiateOnlinePayment = async () => {
+    if (!currentUser) return;
     setPlacingOrder(true);
     try {
         const response = await fetch('/api/razorpay', {
@@ -214,7 +230,7 @@ export default function CartPage() {
             description: 'Your order has been successfully placed.',
         });
         updateCart([]); // Clear the cart
-        setIsConfirmOpen(false);
+        setIsCheckoutDialogOpen(false);
         setIsPromoDialogOpen(false);
         router.push('/customer/orders');
     } catch (error) {
@@ -299,9 +315,15 @@ export default function CartPage() {
                 </div>
             </div>
 
-            <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+            <Dialog open={isCheckoutDialogOpen} onOpenChange={setIsCheckoutDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="w-full h-12 text-lg">
+                <Button className="w-full h-12 text-lg" onClick={() => {
+                  if (isPromoDialogOpen) { // If user came back from promo dialog
+                     handlePlaceOrderClick();
+                  } else {
+                    setIsCheckoutDialogOpen(true);
+                  }
+                }}>
                     <ShoppingBasket className="mr-2 h-5 w-5"/>
                     Place Order
                 </Button>
@@ -359,7 +381,7 @@ export default function CartPage() {
                 </div>
                 
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsConfirmOpen(false)} disabled={placingOrder}>Go Back</Button>
+                  <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)} disabled={placingOrder}>Go Back</Button>
                   <Button onClick={handleCheckout} disabled={placingOrder}>
                     Confirm Details
                   </Button>
@@ -368,25 +390,30 @@ export default function CartPage() {
             </Dialog>
 
             <AlertDialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
-                <AlertDialogContent>
+                <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
                         <div className="flex justify-center mb-4">
                             <div className="p-3 bg-yellow-100 rounded-full">
                                 <Gift className="w-10 h-10 text-yellow-500" />
                             </div>
                         </div>
-                        <AlertDialogTitle className="text-center text-2xl font-headline">जीतने के लिए बस एक और कदम!</AlertDialogTitle>
-                        <AlertDialogDescription className="text-center text-base">
-                            ऑनलाइन भुगतान करें और हर महीने रोमांचक पुरस्कार जीतने का मौका पाएं, जिसमें ₹500 का भव्य पुरस्कार भी शामिल है!
+                        <AlertDialogTitle className="text-center text-xl font-headline">एक और मौका, इनाम जीतने का!</AlertDialogTitle>
+                        <AlertDialogDescription className="text-center text-base/relaxed text-muted-foreground space-y-2">
+                          <p>ऑनलाइन पेमेंट करने वाले टॉप 10 लोगों को मिलेगा फ्री रिचार्ज, ओर जो सबसे नंबर one आएगा उसे मिलेगा रिचार्ज के साथ - साथ 501 रूपीए का इनाम भी।</p>
+                          <p>तो अब से करो बुकिंग ऑनलाइन क्योंकि पेसे तो वो ही लगेंगे लेकिन इनाम मे भी आपका नाम आए जाएगा।</p>
                         </AlertDialogDescription>
+                         <div className="text-center text-sm text-muted-foreground pt-2">
+                           <span>कुछ भी सवाल है तो अभी कॉल करो</span>
+                           <Button variant="link" className="p-0 h-auto" asChild>
+                              <a href="tel:8302806913"> 8302806913</a>
+                           </Button>
+                         </div>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2 mt-4">
-                        <Button variant="outline" onClick={() => saveOrderToFirebase('COD')} disabled={placingOrder} className="w-full">
-                           {placingOrder && orderData.paymentMethod === 'COD' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        <Button variant="outline" onClick={() => handlePromoChoice('COD')} className="w-full">
                            COD से भुगतान करें
                         </Button>
-                         <Button onClick={handleOnlinePaymentChoice} disabled={placingOrder} className="w-full bg-gradient-to-r from-green-500 to-primary hover:from-green-600 hover:to-primary/90 text-white shadow-lg">
-                           {placingOrder && orderData.paymentMethod === 'Online' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                         <Button onClick={() => handlePromoChoice('Online')} className="w-full bg-gradient-to-r from-green-500 to-primary hover:from-green-600 hover:to-primary/90 text-white shadow-lg">
                            ऑनलाइन भुगतान करें और जीतें
                         </Button>
                     </AlertDialogFooter>
@@ -397,5 +424,3 @@ export default function CartPage() {
     </div>
   );
 }
-
-    
