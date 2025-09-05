@@ -1,0 +1,68 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    function isAdmin() {
+      return isAuth() && getUserData(request.auth.uid).roles.admin is map;
+    }
+    
+    function isCustomer() {
+        return isAuth() && getUserData(request.auth.uid).roles.customer == true;
+    }
+
+    function isDelivery() {
+        return isAuth() && getUserData(request.auth.uid).roles.delivery is map;
+    }
+
+
+    // User Collection Rules
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuth();
+      
+      // Update Rules:
+      // 1. An owner can update their profile, but CANNOT change their roles.
+      // 2. An admin can update any user's profile, including their roles.
+      allow update: if (isOwner(userId) && request.resource.data.roles == resource.data.roles) || isAdmin();
+      
+      allow delete: if isOwner(userId);
+    }
+
+    // Orders Collection Rules
+    match /orders/{orderId} {
+        // Read Rules:
+        // 1. Admin can read any order.
+        // 2. Customer can read their own orders.
+        // 3. Delivery person can read orders assigned to them.
+        allow read: if isAdmin() || 
+                    (isCustomer() && resource.data.customerId == request.auth.uid) ||
+                    (isDelivery() && resource.data.assignedTo == getUserData(request.auth.uid).roles.delivery.deliveryId);
+
+        // Create Rules:
+        // Customer can create an order for themselves.
+        // Admin can create orders.
+        allow create: if (isCustomer() && request.resource.data.customerId == request.auth.uid) || isAdmin();
+        
+        // Update Rules:
+        // Only an Admin can update an order (e.g., to assign a delivery person).
+        allow update: if isAdmin();
+        
+        // Delete is disallowed for now for record keeping.
+        allow delete: if false;
+    }
+  }
+}
