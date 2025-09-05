@@ -11,7 +11,7 @@ import Image from 'next/image';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 
 export default function CustomerPage() {
@@ -121,8 +121,8 @@ export default function CustomerPage() {
                   <h2 className="text-lg font-bold text-foreground">{userProfile?.name || 'Guest'}</h2>
                 </div>
             </div>
-            <Popover onOpenChange={(open) => !open && handleClearNotifications()}>
-              <PopoverTrigger asChild>
+            <Sheet onOpenChange={(open) => open && handleClearNotifications()}>
+              <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative rounded-full w-12 h-12">
                     <Bell className="h-6 w-6 text-foreground/80"/>
                     {notifications.length > 0 && (
@@ -131,28 +131,26 @@ export default function CustomerPage() {
                       </span>
                     )}
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80">
-                <div className="grid gap-4">
-                  <div className="space-y-2">
-                    <h4 className="font-medium leading-none">Notifications</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Recent updates on your orders.
-                    </p>
-                  </div>
-                  <Separator/>
-                  <div className="grid gap-2">
-                    {notifications.length > 0 ? notifications.map(notif => (
-                       <div key={notif.id} className="text-sm p-2 rounded-md hover:bg-muted">
-                           <p>Order <span className="font-semibold">#{notif.id.substring(0, 7)}...</span> is now <span className="font-semibold text-primary">{notif.status}</span>.</p>
-                       </div>
-                    )) : (
-                      <p className="text-sm text-muted-foreground text-center py-4">No new notifications.</p>
-                    )}
-                  </div>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Notifications</SheetTitle>
+                  <SheetDescription>
+                    Recent updates on your orders.
+                  </SheetDescription>
+                </SheetHeader>
+                <Separator className="my-4"/>
+                <div className="grid gap-2">
+                  {notifications.length > 0 ? notifications.map(notif => (
+                      <div key={notif.id} className="text-sm p-2 rounded-md hover:bg-muted">
+                          <p>Order <span className="font-semibold">#{notif.id.substring(0, 7)}...</span> is now <span className="font-semibold text-primary">{notif.status}</span>.</p>
+                      </div>
+                  )) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">No new notifications.</p>
+                  )}
                 </div>
-              </PopoverContent>
-            </Popover>
+              </SheetContent>
+            </Sheet>
         </header>
 
         <div className="relative animate-fade-in-down" style={{animationDelay: '100ms'}}>
