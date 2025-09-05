@@ -20,18 +20,13 @@ service cloud.firestore {
     // जाँचता है कि लॉग-इन उपयोगकर्ता एक एडमिन है या नहीं
     function isAdmin() {
       // यह Firestore से उपयोगकर्ता की भूमिका की जानकारी लेता है
-      // और जाँचता है कि 'admin' भूमिका एक ऑब्जेक्ट (map) है
       return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin is map;
     }
     
-    // उपयोगकर्ता की डिलीवरी आईडी सुरक्षित रूप से प्राप्त करता है
+    // उपयोगकर्ता की डिलीवरी आईडी प्राप्त करता है (सुरक्षित रूप से)
     function getDeliveryId() {
-        let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-        // पहले जांचें कि delivery रोल मौजूद है या नहीं
-        if ('delivery' in userDoc.roles && 'deliveryId' in userDoc.roles.delivery) {
-          return userDoc.roles.delivery.deliveryId;
-        }
-        return null;
+        // यह पहले जाँचता है कि delivery भूमिका मौजूद है या नहीं, फिर ID लौटाता है
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.get('delivery', {}).get('deliveryId', null);
     }
 
 
