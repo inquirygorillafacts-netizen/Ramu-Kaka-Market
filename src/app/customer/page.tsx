@@ -5,27 +5,29 @@ import { collection, query, onSnapshot, addDoc, where, orderBy, Timestamp, doc, 
 import { db, auth } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Product, Order, CartItem, UserProfile } from '@/lib/types';
-import { Loader2, Bell, Search, BadgePercent, HelpCircle, GitCompareArrows } from 'lucide-react';
+import { Product, Order, CartItem, UserProfile, ProductCategory } from '@/lib/types';
+import { Loader2, Bell, Search, BadgePercent, HelpCircle, GitCompareArrows, Heart, ShoppingBasket } from 'lucide-react';
 import Image from 'next/image';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function CustomerPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [banners, setBanners] = useState<{ id: string; imageUrl: string; active: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [placingOrder, setPlacingOrder] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<Order[]>([]);
   const { toast } = useToast();
+  const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'All'>('All');
+
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -45,6 +47,7 @@ export default function CustomerPage() {
     const prodQuery = query(collection(db, 'products'), orderBy('name'));
     const unsubscribeProducts = onSnapshot(prodQuery, (snapshot) => {
       setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+      setLoading(false);
     });
 
     const bannersQuery = query(collection(db, 'banners'), where('active', '==', true));
@@ -53,9 +56,11 @@ export default function CustomerPage() {
     });
 
     const savedCart = localStorage.getItem('ramukaka_cart');
-    if (savedCart) {
-        setCart(JSON.parse(savedCart));
-    }
+    if (savedCart) setCart(JSON.parse(savedCart));
+
+    const savedFavorites = localStorage.getItem('ramukaka_favorites');
+    if (savedFavorites) setFavorites(JSON.parse(savedFavorites).map((p: Product) => p.id));
+
 
     return () => {
       unsubscribeAuth();
@@ -69,7 +74,8 @@ export default function CustomerPage() {
     const q = query(
         collection(db, 'orders'),
         where('customerId', '==', currentUser.uid),
-        where('customerHasViewedUpdate', '==', false)
+        where('customerHasViewedUpdate', '==', false),
+        orderBy('createdAt', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const unseenOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
@@ -80,11 +86,42 @@ export default function CustomerPage() {
   }, [currentUser]);
 
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-        localStorage.setItem('ramukaka_cart', JSON.stringify(cart));
-    }
-  }, [cart]);
+  const updateCart = (newCart: CartItem[]) => {
+      setCart(newCart);
+      localStorage.setItem('ramukaka_cart', JSON.stringify(newCart));
+  }
+
+  const handleAddToCart = (product: Product) => {
+      const newCart = [...cart];
+      const existingItem = newCart.find(item => item.id === product.id);
+      if (existingItem) {
+          existingItem.quantity += 1;
+      } else {
+          newCart.push({ ...product, quantity: 1 });
+      }
+      updateCart(newCart);
+      toast({
+          title: 'Added to Tokri!',
+          description: `${product.name} has been added to your tokri.`
+      })
+  }
+
+  const toggleFavorite = (product: Product) => {
+      const currentFavorites: Product[] = JSON.parse(localStorage.getItem('ramukaka_favorites') || '[]');
+      const isFavorite = favorites.includes(product.id);
+      let updatedFavorites: Product[];
+      
+      if (isFavorite) {
+          updatedFavorites = currentFavorites.filter(fav => fav.id !== product.id);
+          toast({ title: "Removed from Favorites" });
+      } else {
+          updatedFavorites = [...currentFavorites, product];
+          toast({ title: "Added to Favorites!" });
+      }
+      localStorage.setItem('ramukaka_favorites', JSON.stringify(updatedFavorites));
+      setFavorites(updatedFavorites.map(p => p.id));
+  };
+
 
   const handleClearNotifications = async () => {
     if (notifications.length === 0) return;
@@ -102,16 +139,19 @@ export default function CustomerPage() {
     }
   };
 
+  const filteredProducts = useMemo(() => {
+    return products
+      .filter(p => selectedCategory === 'All' || p.category === selectedCategory)
+      .filter(p => 
+        searchQuery === '' || 
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.keywords?.some(kw => kw.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+  }, [products, selectedCategory, searchQuery]);
+
+
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   const getBannerUrl = (id: string) => banners.find(b => b.id === id)?.imageUrl;
-
-  if (loading) {
-      return (
-          <div className="flex min-h-screen items-center justify-center bg-background">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-      )
-  }
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -193,6 +233,71 @@ export default function CustomerPage() {
                 <GitCompareArrows className="h-8 w-8 text-green-600"/>
                 <span className="text-sm font-semibold">Compare</span>
             </Button>
+        </div>
+
+        <div className="space-y-4 animate-fade-in-up" style={{animationDelay: '400ms'}}>
+            <h2 className="text-2xl font-bold font-headline">Shop by Category</h2>
+             <Tabs defaultValue="All" value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as any)} className="w-full">
+              <TabsList>
+                <TabsTrigger value="All">All</TabsTrigger>
+                <TabsTrigger value="Vegetables">Vegetables</TabsTrigger>
+                <TabsTrigger value="Fruits">Fruits</TabsTrigger>
+                <TabsTrigger value="Grocery">Grocery</TabsTrigger>
+                <TabsTrigger value="Cafe">Cafe</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            
+            {loading ? (
+                 <div className="flex justify-center items-center h-64">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                 </div>
+            ): filteredProducts.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {filteredProducts.map(product => (
+                        <div key={product.id} className="relative bg-card rounded-xl shadow-sm overflow-hidden group border">
+                            <button 
+                                onClick={() => toggleFavorite(product)}
+                                className="absolute top-2 right-2 z-10 p-1.5 bg-background/70 backdrop-blur-sm rounded-full"
+                            >
+                                <Heart className={`w-5 h-5 transition-colors ${favorites.includes(product.id) ? 'text-destructive fill-destructive' : 'text-muted-foreground'}`}/>
+                            </button>
+                            
+                            <div className="aspect-square overflow-hidden">
+                                <Image 
+                                    src={product.images[0]} 
+                                    alt={product.name} 
+                                    width={200} 
+                                    height={200} 
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                            </div>
+
+                            <div className="p-3 space-y-2">
+                                <h3 className="font-semibold text-sm truncate">{product.name}</h3>
+                                <p className="text-xs text-muted-foreground">per {product.unit}</p>
+                                <div className="flex justify-between items-center">
+                                    <div className="font-bold text-base">
+                                     {product.discountPrice ? (
+                                        <div className="flex items-baseline gap-1.5">
+                                            <span>₹{product.discountPrice.toFixed(2)}</span>
+                                            <span className="text-sm line-through text-muted-foreground">₹{product.price.toFixed(2)}</span>
+                                        </div>
+                                     ) : `₹${product.price.toFixed(2)}`}
+                                    </div>
+                                </div>
+                                 <Button className="w-full h-9" onClick={() => handleAddToCart(product)}>
+                                   <ShoppingBasket className="w-4 h-4 mr-2"/>
+                                   Add
+                                 </Button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-16 text-muted-foreground">
+                    <p>No products found for "{searchQuery || selectedCategory}"</p>
+                </div>
+            )}
         </div>
     </div>
   );
