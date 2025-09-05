@@ -93,6 +93,13 @@ export default function DashboardLayout({
   const getInitials = (name: string = "") => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   }
+  
+  const getCurrentPanelTitle = () => {
+      const currentPanel = pathname.split('/').filter(Boolean)[0];
+      if (!currentPanel) return "Dashboard";
+      return currentPanel.charAt(0).toUpperCase() + currentPanel.slice(1) + " Panel";
+  }
+
 
   if (loading) {
     return (
@@ -105,11 +112,7 @@ export default function DashboardLayout({
     );
   }
 
-  const userRoles = user?.roles ? Object.keys(user.roles) : [];
-  const canSeeCustomer = userRoles.includes('customer');
-  const canSeeAdmin = userRoles.includes('admin');
-  const canSeeDelivery = userRoles.includes('delivery');
-
+  const currentPanel = pathname.split('/')[1];
 
   return (
     <SidebarProvider>
@@ -127,36 +130,16 @@ export default function DashboardLayout({
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
-              {canSeeCustomer && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={pathname === "/customer"}>
-                    <Link href="/customer">
-                      <ShoppingCart />
-                      <span className="truncate">Customer Panel</span>
+                  <SidebarMenuButton asChild isActive={true}>
+                    <Link href={`/${currentPanel}`}>
+                      {currentPanel === 'customer' && <ShoppingCart />}
+                      {currentPanel === 'admin' && <LayoutDashboard />}
+                      {currentPanel === 'delivery' && <Truck />}
+                      <span className="truncate">{getCurrentPanelTitle()}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              )}
-              {canSeeAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={pathname === "/admin"}>
-                    <Link href="/admin">
-                      <LayoutDashboard />
-                      <span className="truncate">Admin Panel</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {canSeeDelivery && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={pathname === "/delivery"}>
-                    <Link href="/delivery">
-                      <Truck />
-                      <span className="truncate">Delivery Panel</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="space-y-2">
