@@ -124,7 +124,7 @@ export default {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-in': 'fade-in 1s ease-out forwards',
-        'fade-out': 'fade-out 5s ease-out forwards',
+        'fade-out': 'fade-out 3s ease-out forwards',
         'fade-in-up': 'fade-in-up 0.5s ease-out forwards',
         'fade-in-down': 'fade-in-down 0.8s ease-out forwards',
         'draw-line': 'draw-line 1s ease-out forwards',

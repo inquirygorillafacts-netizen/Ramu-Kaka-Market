@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Camera, User, Phone, Lock } from 'lucide-react';
+import { Camera, User, Mail, Lock } from 'lucide-react';
 import Image from 'next/image';
 
 export default function AuthPage() {
@@ -79,10 +79,10 @@ export default function AuthPage() {
               </div>
             )}
              <div className="space-y-2">
-                <Label htmlFor="mobile">Mobile Number</Label>
+                <Label htmlFor="email">Email Address</Label>
                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="mobile" type="tel" placeholder="Your 10-digit mobile number" required className="pl-10"/>
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="email" type="email" placeholder="e.g. priya@example.com" required className="pl-10"/>
                 </div>
             </div>
             <div className="space-y-2">
