@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Product, CartItem, UserProfile, Order } from '@/lib/types';
-import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon } from 'lucide-react';
+import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon, Gift, CreditCard, Wallet } from 'lucide-react';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -16,12 +16,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { addDoc, collection, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 declare const Razorpay: any;
@@ -29,10 +31,11 @@ declare const Razorpay: any;
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [profile, setProfile] = useState<Partial<UserProfile>>({});
-  const [orderData, setOrderData] = useState({ name: '', mobile: '', address: '', pincode: '', village: '' });
+  const [orderData, setOrderData] = useState({ name: '', mobile: '', address: '', pincode: '', village: '', paymentMethod: 'COD' as 'COD' | 'Online'});
   const [loading, setLoading] = useState(true);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isPromoDialogOpen, setIsPromoDialogOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -54,13 +57,11 @@ export default function CartPage() {
         const savedCart = localStorage.getItem('ramukaka_cart');
         if (savedCart) setCart(JSON.parse(savedCart));
 
-        // Load local profile for quick display
         const savedProfile = localStorage.getItem('ramukaka_profile');
         const localProfile: Partial<UserProfile> = savedProfile ? JSON.parse(savedProfile) : {};
 
         let finalProfile = localProfile;
 
-        // If user is logged in, fetch from Firebase to get latest name/map coords
         const user = auth.currentUser;
         if(user) {
              const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -76,6 +77,7 @@ export default function CartPage() {
             address: finalProfile.address || '',
             pincode: finalProfile.pincode || '',
             village: finalProfile.village || '',
+            paymentMethod: finalProfile.paymentMethod || 'COD'
         });
         setLoading(false);
     }
@@ -114,7 +116,7 @@ export default function CartPage() {
     }, 0);
   };
   
-  const handlePlaceOrder = async () => {
+  const handleCheckout = async () => {
     if (!currentUser) {
         toast({ variant: 'destructive', title: 'Not Logged In', description: 'You must be logged in to place an order.' });
         return;
@@ -125,57 +127,71 @@ export default function CartPage() {
         return;
     }
 
-    setPlacingOrder(true);
-    
-    if (profile.paymentMethod === 'Online') {
-        try {
-            const response = await fetch('/api/razorpay', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: getCartTotal() * 100 }) // amount in paisa
-            });
-            const { order } = await response.json();
-            
-            const options = {
-                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-                amount: order.amount,
-                currency: "INR",
-                name: "Ramu Kaka Market",
-                description: "Order Payment",
-                order_id: order.id,
-                handler: async function (response: any) {
-                    // Payment successful, now save the order to Firebase
-                    await saveOrderToFirebase(response.razorpay_payment_id);
-                },
-                prefill: {
-                    name: orderData.name,
-                    email: currentUser.email,
-                    contact: orderData.mobile
-                },
-                theme: {
-                    color: "#4CAF50"
-                }
-            };
-            const rzp = new Razorpay(options);
-            rzp.on('payment.failed', function (response:any) {
-                toast({ variant: 'destructive', title: 'Payment Failed', description: response.error.description });
-                setPlacingOrder(false);
-            });
-            rzp.open();
-        } catch (error) {
-            console.error("Razorpay error:", error);
-            toast({ variant: 'destructive', title: 'Payment Error', description: 'Could not initiate online payment.' });
-            setPlacingOrder(false);
-        }
-
-    } else { // COD
-        await saveOrderToFirebase();
-        setPlacingOrder(false);
+    if (orderData.paymentMethod === 'COD') {
+        setIsConfirmOpen(false); // Close details dialog
+        setIsPromoDialogOpen(true); // Open promo dialog
+    } else {
+        await initiateOnlinePayment();
     }
   }
 
-  const saveOrderToFirebase = async (paymentId?: string) => {
+  const handleOnlinePaymentChoice = () => {
+    setIsPromoDialogOpen(false);
+    toast({
+      title: 'Great choice!',
+      description: "You're now in the running to win.",
+    });
+    initiateOnlinePayment();
+  }
+
+  const initiateOnlinePayment = async () => {
+    setPlacingOrder(true);
+    try {
+        const response = await fetch('/api/razorpay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: getCartTotal() * 100 }) // amount in paisa
+        });
+        const { order } = await response.json();
+        
+        const options = {
+            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+            amount: order.amount,
+            currency: "INR",
+            name: "Ramu Kaka Market",
+            description: "Order Payment",
+            order_id: order.id,
+            handler: async function (response: any) {
+                await saveOrderToFirebase('Online', response.razorpay_payment_id);
+            },
+            prefill: {
+                name: orderData.name,
+                email: currentUser!.email,
+                contact: orderData.mobile
+            },
+            theme: {
+                color: "#4CAF50"
+            }
+        };
+        const rzp = new Razorpay(options);
+        rzp.on('payment.failed', function (response:any) {
+            toast({ variant: 'destructive', title: 'Payment Failed', description: response.error.description });
+            setPlacingOrder(false);
+        });
+        rzp.open();
+    } catch (error) {
+        console.error("Razorpay error:", error);
+        toast({ variant: 'destructive', title: 'Payment Error', description: 'Could not initiate online payment.' });
+        setPlacingOrder(false);
+    } finally {
+        setIsConfirmOpen(false); // Close details dialog
+    }
+  }
+
+
+  const saveOrderToFirebase = async (paymentMethod: 'COD' | 'Online', paymentId?: string) => {
     if(!currentUser) return;
+    setPlacingOrder(true);
     try {
         await addDoc(collection(db, 'orders'), {
             customerId: currentUser.uid,
@@ -189,7 +205,7 @@ export default function CartPage() {
             total: getCartTotal(),
             status: 'Pending',
             createdAt: new Date(),
-            paymentMethod: profile.paymentMethod,
+            paymentMethod: paymentMethod,
             paymentId: paymentId || null,
             customerHasViewedUpdate: true,
         });
@@ -199,6 +215,7 @@ export default function CartPage() {
         });
         updateCart([]); // Clear the cart
         setIsConfirmOpen(false);
+        setIsPromoDialogOpen(false);
         router.push('/customer/orders');
     } catch (error) {
       console.error('Error placing order: ', error);
@@ -207,6 +224,8 @@ export default function CartPage() {
         title: 'Order Failed',
         description: 'There was an issue placing your order. Please try again.',
       });
+    } finally {
+        setPlacingOrder(false);
     }
   }
 
@@ -318,18 +337,62 @@ export default function CartPage() {
                       <Input id="pincode" value={orderData.pincode} onChange={(e) => setOrderData({...orderData, pincode: e.target.value})} />
                   </div>
                   <Separator/>
-                  <p className="text-sm">Payment Method: <span className="font-bold">{profile.paymentMethod}</span></p>
+                   <div className="space-y-3">
+                        <Label>Payment Method</Label>
+                        <RadioGroup
+                            value={orderData.paymentMethod}
+                            onValueChange={(value: 'COD' | 'Online') => setOrderData({...orderData, paymentMethod: value})}
+                            className="flex gap-4"
+                        >
+                            <Label htmlFor="cod" className="flex items-center gap-2 border rounded-md p-3 flex-1 has-[:checked]:bg-primary/10 has-[:checked]:border-primary cursor-pointer">
+                                <RadioGroupItem value="COD" id="cod" />
+                                <Wallet className="w-5 h-5 text-muted-foreground" />
+                                Cash on Delivery
+                            </Label>
+                             <Label htmlFor="online" className="flex items-center gap-2 border rounded-md p-3 flex-1 has-[:checked]:bg-primary/10 has-[:checked]:border-primary cursor-pointer">
+                                <RadioGroupItem value="Online" id="online" />
+                                <CreditCard className="w-5 h-5 text-muted-foreground" />
+                                Online Payment
+                            </Label>
+                        </RadioGroup>
+                    </div>
                 </div>
                 
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsConfirmOpen(false)} disabled={placingOrder}>Go Back</Button>
-                  <Button onClick={handlePlaceOrder} disabled={placingOrder}>
+                  <Button onClick={handleCheckout} disabled={placingOrder}>
                     {placingOrder ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {placingOrder ? 'Processing...' : `Pay ₹${getCartTotal().toFixed(2)}`}
+                    {placingOrder ? 'Processing...' : `Confirm & Pay ₹${getCartTotal().toFixed(2)}`}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            <AlertDialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <div className="flex justify-center mb-4">
+                            <div className="p-3 bg-yellow-100 rounded-full">
+                                <Gift className="w-10 h-10 text-yellow-500" />
+                            </div>
+                        </div>
+                        <AlertDialogTitle className="text-center text-2xl font-headline">One More Step to Win!</AlertDialogTitle>
+                        <AlertDialogDescription className="text-center text-base">
+                            Pay online and get a chance to win exciting rewards every month, including a grand prize of ₹500!
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2 mt-4">
+                        <Button variant="outline" onClick={() => saveOrderToFirebase('COD')} disabled={placingOrder} className="w-full">
+                           {placingOrder && orderData.paymentMethod === 'COD' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                           Pay with COD
+                        </Button>
+                         <Button onClick={handleOnlinePaymentChoice} disabled={placingOrder} className="w-full bg-gradient-to-r from-green-500 to-primary hover:from-green-600 hover:to-primary/90 text-white shadow-lg">
+                           {placingOrder && orderData.paymentMethod === 'Online' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                           Pay Online & Win
+                        </Button>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
       )}
     </div>
