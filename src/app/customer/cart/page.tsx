@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Product, CartItem, UserProfile, Order } from '@/lib/types';
-import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon, Gift, CreditCard, Wallet } from 'lucide-react';
+import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon, Gift, CreditCard, Wallet, Globe, Home, Hash } from 'lucide-react';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -33,12 +33,12 @@ declare const Razorpay: any;
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [profile, setProfile] = useState<Partial<UserProfile>>({});
-  const [orderData, setOrderData] = useState({ name: '', mobile: '', address: '', pincode: '', village: '', paymentMethod: 'COD' as 'COD' | 'Online'});
+  const [orderData, setOrderData] = useState({ name: '', mobile: '', address: '', pincode: '', village: '', mapLat: '', mapLng: '', paymentMethod: 'Online' as 'COD' | 'Online'});
   const [loading, setLoading] = useState(true);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
   const [isPromoDialogOpen, setIsPromoDialogOpen] = useState(false);
-  const [isCodConfirmOpen, setIsCodConfirmOpen] = useState(false);
+  const [hasShownPromo, setHasShownPromo] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -64,13 +64,23 @@ export default function CartPage() {
         const localProfile: Partial<UserProfile> = savedProfile ? JSON.parse(savedProfile) : {};
 
         let finalProfile = localProfile;
-
+        
         const user = auth.currentUser;
         if(user) {
              const userDoc = await getDoc(doc(db, 'users', user.uid));
              if (userDoc.exists()) {
-                 const firebaseProfile = userDoc.data();
-                 finalProfile = { ...localProfile, name: firebaseProfile.name || localProfile.name || '', photoUrl: firebaseProfile.photoUrl || localProfile.photoUrl || '', mapLat: firebaseProfile.mapLat || localProfile.mapLat || '', mapLng: firebaseProfile.mapLng || localProfile.mapLng || ''};
+                 const fbProfile = userDoc.data();
+                 finalProfile = {
+                   name: fbProfile.name || localProfile.name || '',
+                   mobile: localProfile.mobile || '',
+                   address: localProfile.address || '',
+                   village: localProfile.village || '',
+                   pincode: localProfile.pincode || '',
+                   mapLat: fbProfile.mapLat || localProfile.mapLat || '',
+                   mapLng: fbProfile.mapLng || localProfile.mapLng || '',
+                   photoUrl: fbProfile.photoUrl || localProfile.photoUrl || '',
+                   paymentMethod: localProfile.paymentMethod || 'Online',
+                 };
              }
         }
         setProfile(finalProfile);
@@ -78,9 +88,11 @@ export default function CartPage() {
             name: finalProfile.name || '',
             mobile: finalProfile.mobile || '',
             address: finalProfile.address || '',
-            pincode: finalProfile.pincode || '',
             village: finalProfile.village || '',
-            paymentMethod: 'COD'
+            pincode: finalProfile.pincode || '',
+            mapLat: finalProfile.mapLat || '',
+            mapLng: finalProfile.mapLng || '',
+            paymentMethod: 'Online'
         });
         setLoading(false);
     }
@@ -119,50 +131,41 @@ export default function CartPage() {
     }, 0);
   };
   
-  const handleProceedClick = async () => {
+  const handleOrderNowClick = async () => {
       if (placingOrder) return;
-
+      
       if (!currentUser) {
           toast({ variant: 'destructive', title: 'Not Logged In', description: 'You must be logged in to place an order.' });
           return;
       }
       
-      if (!orderData.name || !orderData.mobile || !orderData.address || !orderData.pincode) {
+      // If form is not filled, open it.
+      if (!orderData.name || !orderData.mobile || !orderData.address) {
           setIsCheckoutDialogOpen(true);
           return;
       }
       
-      if (orderData.paymentMethod === 'COD') {
-          setIsPromoDialogOpen(true);
-      } else {
+      // If form is filled, proceed with payment logic
+      if (orderData.paymentMethod === 'Online') {
           await initiateOnlinePayment();
+      } else { // COD
+          if (!hasShownPromo) {
+            setIsPromoDialogOpen(true);
+            setHasShownPromo(true);
+          } else {
+            await saveOrderToFirebase('COD');
+          }
       }
   };
 
-  const handleCheckout = () => {
+  const handleDetailsSubmit = () => {
     if (!orderData.name || !orderData.mobile || !orderData.address || !orderData.pincode) {
         toast({ variant: 'destructive', title: 'Information Missing', description: 'Please fill all address and contact details.' });
         return;
     }
     setIsCheckoutDialogOpen(false);
-  }
-
-  const handlePromoChoice = async (choice: 'COD' | 'Online') => {
-      setIsPromoDialogOpen(false);
-      if (choice === 'Online') {
-          toast({
-              title: 'बहुत बढ़िया!',
-              description: "अब आप भी जीतने की दौड़ में शामिल हैं।",
-          });
-          await initiateOnlinePayment();
-      } else {
-          setIsCodConfirmOpen(true);
-      }
-  }
-
-  const handleFinalCodConfirmation = async () => {
-      setIsCodConfirmOpen(false);
-      await saveOrderToFirebase('COD');
+    // Now user needs to click "Order Now" again
+    toast({ title: "Details Confirmed", description: "Click 'Order Now' again to place your order." });
   }
 
   const initiateOnlinePayment = async () => {
@@ -228,8 +231,8 @@ export default function CartPage() {
             customerAddress: `${orderData.address}, ${orderData.village}`,
             customerPincode: orderData.pincode,
             customerMobile: orderData.mobile,
-            mapLat: profile.mapLat || null,
-            mapLng: profile.mapLng || null,
+            mapLat: orderData.mapLat || null,
+            mapLng: orderData.mapLng || null,
             items: cart.map(item => ({...item, rating: null, keywords: null})),
             total: getCartTotal(),
             status: 'Pending',
@@ -328,124 +331,142 @@ export default function CartPage() {
                 </div>
             </div>
 
+            <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={handleOrderNowClick}>
+              {placingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShoppingBasket className="mr-2 h-5 w-5"/>}
+              {placingOrder ? 'Placing Order...' : 'Order Now'}
+            </Button>
+
             <Dialog open={isCheckoutDialogOpen} onOpenChange={setIsCheckoutDialogOpen}>
-                <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={handleProceedClick}>
-                  {placingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShoppingBasket className="mr-2 h-5 w-5"/>}
-                  {placingOrder ? 'Placing Order...' : 'Order Now'}
-                </Button>
-              <DialogContent>
+              <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Confirm Delivery Details</DialogTitle>
                   <DialogDescription>
                     Your order will be delivered to this address. You can edit the details for this specific order.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="my-4 space-y-4">
-                  <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" value={orderData.name} onChange={(e) => setOrderData({...orderData, name: e.target.value})} />
+                <div className="my-4 space-y-4 max-h-[60vh] overflow-y-auto pr-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Full Name</Label>
+                        <div className="relative">
+                            <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input id="name" value={orderData.name} onChange={(e) => setOrderData({...orderData, name: e.target.value})} className="pl-10"/>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="mobile">Mobile Number</Label>
+                        <div className="relative">
+                           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                           <Input id="mobile" value={orderData.mobile} onChange={(e) => setOrderData({...orderData, mobile: e.target.value})} className="pl-10"/>
+                        </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="mobile">Mobile Number</Label>
-                      <Input id="mobile" value={orderData.mobile} onChange={(e) => setOrderData({...orderData, mobile: e.target.value})} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="address">Address (House, Street)</Label>
-                        <Input id="address" value={orderData.address} onChange={(e) => setOrderData({...orderData, address: e.target.value})} />
+                        <div className="relative">
+                            <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input id="address" value={orderData.address} onChange={(e) => setOrderData({...orderData, address: e.target.value})} className="pl-10"/>
+                        </div>
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="village">Village/Town</Label>
-                        <Input id="village" value={orderData.village} onChange={(e) => setOrderData({...orderData, village: e.target.value})} />
+                        <div className="relative">
+                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input id="village" value={orderData.village} onChange={(e) => setOrderData({...orderData, village: e.target.value})} className="pl-10"/>
+                        </div>
                     </div>
                   </div>
                   <div className="space-y-2">
                       <Label htmlFor="pincode">Pincode</Label>
-                      <Input id="pincode" value={orderData.pincode} onChange={(e) => setOrderData({...orderData, pincode: e.target.value})} />
+                      <div className="relative">
+                        <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input id="pincode" value={orderData.pincode} onChange={(e) => setOrderData({...orderData, pincode: e.target.value})} className="pl-10"/>
+                      </div>
                   </div>
+                  <div className="space-y-2">
+                    <Label>Google Map Coordinates (Optional)</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="relative">
+                            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input id="mapLat" value={orderData.mapLat} onChange={(e) => setOrderData({...orderData, mapLat: e.target.value})} placeholder="Latitude" className="pl-10"/>
+                        </div>
+                        <div className="relative">
+                            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input id="mapLng" value={orderData.mapLng} onChange={(e) => setOrderData({...orderData, mapLng: e.target.value})} placeholder="Longitude" className="pl-10"/>
+                        </div>
+                    </div>
+                   </div>
                   <Separator/>
                    <div className="space-y-3">
                         <Label>Payment Method</Label>
                         <RadioGroup
                             value={orderData.paymentMethod}
                             onValueChange={(value: 'COD' | 'Online') => setOrderData({...orderData, paymentMethod: value})}
-                            className="flex gap-4"
+                            className="grid grid-cols-2 gap-4"
                         >
-                            <Label htmlFor="cod" className="flex items-center gap-2 border rounded-md p-3 flex-1 has-[:checked]:bg-primary/10 has-[:checked]:border-primary cursor-pointer">
-                                <RadioGroupItem value="COD" id="cod" />
-                                <Wallet className="w-5 h-5 text-muted-foreground" />
-                                Cash on Delivery
-                            </Label>
-                             <Label htmlFor="online" className="flex items-center gap-2 border rounded-md p-3 flex-1 has-[:checked]:bg-primary/10 has-[:checked]:border-primary cursor-pointer">
-                                <RadioGroupItem value="Online" id="online" />
-                                <CreditCard className="w-5 h-5 text-muted-foreground" />
-                                Online Payment
-                            </Label>
+                            <div className="space-y-1">
+                                <Label htmlFor="online" className="flex flex-col gap-2 border rounded-md p-3 has-[:checked]:bg-primary/10 has-[:checked]:border-primary cursor-pointer">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-semibold flex items-center gap-2"><CreditCard className="w-5 h-5 text-muted-foreground" />Online Payment</span>
+                                        <RadioGroupItem value="Online" id="online" />
+                                    </div>
+                                    <span className="text-xs font-semibold text-primary">ऑफर लागू</span>
+                                </Label>
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="cod" className="flex flex-col gap-2 border rounded-md p-3 has-[:checked]:bg-primary/10 has-[:checked]:border-primary cursor-pointer">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-semibold flex items-center gap-2"><Wallet className="w-5 h-5 text-muted-foreground" />Cash on Delivery</span>
+                                        <RadioGroupItem value="COD" id="cod" />
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">कोई ऑफर लागू नहीं</span>
+                                 </Label>
+                            </div>
                         </RadioGroup>
                     </div>
                 </div>
                 
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)} disabled={placingOrder}>Go Back</Button>
-                  <Button onClick={handleCheckout} disabled={placingOrder}>
+                  <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)} disabled={placingOrder}>Cancel</Button>
+                  <Button onClick={handleDetailsSubmit} disabled={placingOrder}>
                     Confirm Details
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
 
-            <AlertDialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
-                <AlertDialogContent className="max-w-md">
-                    <AlertDialogHeader>
+            <Dialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
+                <DialogContent className="max-w-md">
+                     <DialogHeader>
                         <div className="flex justify-center mb-4">
                             <div className="p-3 bg-yellow-100 rounded-full">
                                 <Gift className="w-10 h-10 text-yellow-500" />
                             </div>
                         </div>
-                        <AlertDialogTitle className="text-center text-xl font-headline">एक और मौका, इनाम जीतने का!</AlertDialogTitle>
-                        <AlertDialogDescription className="text-center text-base/relaxed text-muted-foreground space-y-2">
+                        <DialogTitle className="text-center text-xl font-headline">एक और मौका, इनाम जीतने का!</DialogTitle>
+                        <DialogDescription className="text-center text-base/relaxed text-muted-foreground space-y-2">
                           <span>ऑनलाइन पेमेंट करने वाले टॉप 10 लोगों को मिलेगा फ्री रिचार्ज, ओर जो सबसे नंबर one आएगा उसे मिलेगा रिचार्ज के साथ - साथ 501 रूपीए का इनाम भी।</span>
                           <span>तो अब से करो बुकिंग ऑनलाइन क्योंकि पेसे तो वो ही लगेंगे लेकिन इनाम मे भी आपका नाम आए जाएगा।</span>
-                        </AlertDialogDescription>
+                        </DialogDescription>
                          <div className="text-center text-sm text-muted-foreground pt-2">
                            <span>कुछ भी सवाल है तो अभी कॉल करो</span>
                            <Button variant="link" className="p-0 h-auto" asChild>
                               <a href="tel:8302806913"> 8302806913</a>
                            </Button>
                          </div>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2 mt-4">
-                        <Button variant="outline" onClick={() => handlePromoChoice('COD')} className="w-full">
-                           COD से भुगतान करें
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setIsPromoDialogOpen(false); toast({ title: "COD Selected", description: "Click 'Order Now' again to confirm."}) }}>
+                            बाद में
                         </Button>
-                         <Button onClick={() => handlePromoChoice('Online')} className="w-full bg-gradient-to-r from-green-500 to-primary hover:from-green-600 hover:to-primary/90 text-white shadow-lg">
-                           ऑनलाइन भुगतान करें और जीतें
-                        </Button>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
             
-            <AlertDialog open={isCodConfirmOpen} onOpenChange={setIsCodConfirmOpen}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>क्या आप निश्चित हैं?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    आप एक रोमांचक इनाम जीतने का मौका चूक सकते हैं। क्या आप वाकई COD के साथ आगे बढ़ना चाहते हैं?
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>नहीं, वापस जाएं</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleFinalCodConfirmation}>
-                    हाँ, COD के साथ बुक करें
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
         </div>
       )}
     </div>
   );
 
 }
-
-    
