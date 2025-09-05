@@ -2,26 +2,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Users, Shield, User, Truck, AlertTriangle } from 'lucide-react';
+import { Loader2, Users, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-
-interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  roles: {
-    customer?: boolean;
-    admin?: { adminId: string };
-    delivery?: { deliveryId: string };
-  };
-}
+import RoleManager, { UserProfile } from './RoleManager';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -29,6 +20,10 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isRoleManagerOpen, setIsRoleManagerOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const { toast } = useToast();
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user: FirebaseUser | null) => {
@@ -41,6 +36,8 @@ export default function AdminPage() {
         } else {
           setIsAdmin(false);
           setLoading(false);
+          // This redirection is handled by layout.tsx, but as a fallback:
+           router.push('/role-selection');
         }
       } else {
         router.push('/auth');
@@ -72,12 +69,37 @@ export default function AdminPage() {
     }
   };
 
+  const handleManageRolesClick = (user: UserProfile) => {
+    setSelectedUser(user);
+    setIsRoleManagerOpen(true);
+  }
+  
+  const handleRolesUpdate = async (userId: string, newRoles: UserProfile['roles']) => {
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      await updateDoc(userDocRef, { roles: newRoles });
+      toast({
+        title: "Success",
+        description: "User roles updated successfully.",
+      });
+      // Refresh user list to show new roles
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Error updating roles:", error);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: error.message || "Could not update user roles.",
+      });
+    }
+  }
+
 
   const renderRoles = (roles: UserProfile['roles']) => {
     return Object.entries(roles).map(([role, value]) => {
       let roleId = '';
-      if (role === 'admin' && typeof value === 'object' && value.adminId) roleId = `(${value.adminId})`;
-      if (role === 'delivery' && typeof value === 'object' && value.deliveryId) roleId = `(${value.deliveryId})`;
+      if (role === 'admin' && typeof value === 'object' && value?.adminId) roleId = `(${value.adminId})`;
+      if (role === 'delivery' && typeof value === 'object' && value?.deliveryId) roleId = `(${value.deliveryId})`;
       
       const variant = role === 'admin' ? 'destructive' : role === 'delivery' ? 'secondary' : 'default';
 
@@ -148,7 +170,7 @@ export default function AdminPage() {
                       <TableCell>{user.email}</TableCell>
                       <TableCell>{renderRoles(user.roles)}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="outline" size="sm">Manage Roles</Button>
+                        <Button variant="outline" size="sm" onClick={() => handleManageRolesClick(user)}>Manage Roles</Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -158,6 +180,16 @@ export default function AdminPage() {
           )}
         </CardContent>
       </Card>
+      
+      {selectedUser && (
+        <RoleManager
+            user={selectedUser}
+            isOpen={isRoleManagerOpen}
+            onOpenChange={setIsRoleManagerOpen}
+            onSave={handleRolesUpdate}
+        />
+      )}
     </div>
   );
 }
+
