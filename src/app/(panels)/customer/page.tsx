@@ -1,19 +1,29 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Product, Order, CartItem } from '@/lib/types';
-import { Loader2, Package, ShoppingBag, History, BadgePercent, Sparkles, Handshake, Star } from 'lucide-react';
+import { Product, Order, CartItem, ProductCategory } from '@/lib/types';
+import { Loader2, Package, ShoppingBag, History, Star, Soup, Apple, Beef, Wheat } from 'lucide-react';
 import Image from 'next/image';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
 
+
+type CategoryFilter = 'All' | ProductCategory;
+
+const categoryIcons = {
+  All: Package,
+  Vegetables: Soup,
+  Fruits: Apple,
+  Grocery: Wheat,
+  Cafe: Beef,
+};
 
 export default function CustomerPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -23,6 +33,7 @@ export default function CustomerPage() {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [activeCategory, setActiveCategory] = useState<CategoryFilter>('All');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -77,6 +88,12 @@ export default function CustomerPage() {
 
   }, [currentUser, toast]);
 
+  const filteredProducts = useMemo(() => {
+    if (activeCategory === 'All') {
+      return products;
+    }
+    return products.filter(p => p.category === activeCategory);
+  }, [products, activeCategory]);
 
   const addToCart = (product: Product) => {
     setCart((prevCart) => {
@@ -180,17 +197,37 @@ export default function CustomerPage() {
                 <div className="lg:col-span-2 xl:col-span-3">
                     <Card>
                         <CardHeader>
-                        <CardTitle>Products</CardTitle>
-                        <CardDescription>Browse our fresh selection of products.</CardDescription>
+                          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                            <div>
+                              <CardTitle>Products</CardTitle>
+                              <CardDescription>Browse our fresh selection of products.</CardDescription>
+                            </div>
+                            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                              {(Object.keys(categoryIcons) as CategoryFilter[]).map(category => {
+                                const Icon = categoryIcons[category];
+                                return (
+                                  <Button 
+                                    key={category} 
+                                    variant={activeCategory === category ? "default" : "outline"}
+                                    onClick={() => setActiveCategory(category)}
+                                    className="flex-shrink-0"
+                                  >
+                                    <Icon className="mr-2 h-4 w-4"/>
+                                    {category}
+                                  </Button>
+                                )
+                              })}
+                            </div>
+                          </div>
                         </CardHeader>
                         <CardContent>
                         {loadingProducts ? (
                             <div className="flex justify-center items-center h-64">
                                 <Loader2 className="w-8 h-8 animate-spin" />
                             </div>
-                        ) : (
+                        ) : filteredProducts.length > 0 ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {products.map((product) => (
+                            {filteredProducts.map((product) => (
                                 <Card key={product.id} className="flex flex-col overflow-hidden">
                                     <div className="relative aspect-square w-full">
                                         <Image src={product.images[0]} alt={product.name} fill className="object-cover"/>
@@ -225,6 +262,12 @@ export default function CustomerPage() {
                                 </Card>
                             ))}
                             </div>
+                        ) : (
+                           <div className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground space-y-4">
+                               <Package className="w-16 h-16" />
+                               <p className="text-lg font-medium">No Products Found</p>
+                               <p>There are no products available in the "{activeCategory}" category right now. <br/> Please check back later!</p>
+                           </div>
                         )}
                         </CardContent>
                     </Card>
