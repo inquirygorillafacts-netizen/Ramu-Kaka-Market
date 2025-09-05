@@ -40,7 +40,7 @@ export default function OrdersPage() {
     const q = query(
         collection(db, 'orders'), 
         where('customerId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'asc')
     );
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -53,7 +53,8 @@ export default function OrdersPage() {
                 createdAt: (data.createdAt as Timestamp).toDate(),
             } as Order);
         });
-        setOrders(ordersData);
+        const reversedOrders = ordersData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        setOrders(reversedOrders);
         setLoading(false);
     }, (error) => {
         console.error("Error fetching orders:", error);
