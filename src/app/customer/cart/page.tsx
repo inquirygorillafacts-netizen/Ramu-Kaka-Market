@@ -12,7 +12,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -133,7 +132,7 @@ export default function CartPage() {
     if (orderData.paymentMethod === 'COD') {
         setIsPromoDialogOpen(true);
     } else {
-        await initiateOnlinePayment();
+        await handlePlaceOrderClick();
     }
   }
   
@@ -317,15 +316,15 @@ export default function CartPage() {
 
             <Dialog open={isCheckoutDialogOpen} onOpenChange={setIsCheckoutDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="w-full h-12 text-lg" onClick={() => {
-                  if (isPromoDialogOpen) { // If user came back from promo dialog
+                <Button className="w-full h-12 text-lg" disabled={placingOrder} onClick={() => {
+                  if (orderData.paymentMethod === 'Online' && !isPromoDialogOpen) {
                      handlePlaceOrderClick();
                   } else {
-                    setIsCheckoutDialogOpen(true);
+                     setIsCheckoutDialogOpen(true);
                   }
                 }}>
-                    <ShoppingBasket className="mr-2 h-5 w-5"/>
-                    Place Order
+                    {placingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShoppingBasket className="mr-2 h-5 w-5"/>}
+                    {placingOrder ? 'Placing Order...' : 'Place Order'}
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -399,8 +398,8 @@ export default function CartPage() {
                         </div>
                         <AlertDialogTitle className="text-center text-xl font-headline">एक और मौका, इनाम जीतने का!</AlertDialogTitle>
                         <AlertDialogDescription className="text-center text-base/relaxed text-muted-foreground space-y-2">
-                          <p>ऑनलाइन पेमेंट करने वाले टॉप 10 लोगों को मिलेगा फ्री रिचार्ज, ओर जो सबसे नंबर one आएगा उसे मिलेगा रिचार्ज के साथ - साथ 501 रूपीए का इनाम भी।</p>
-                          <p>तो अब से करो बुकिंग ऑनलाइन क्योंकि पेसे तो वो ही लगेंगे लेकिन इनाम मे भी आपका नाम आए जाएगा।</p>
+                          <div>ऑनलाइन पेमेंट करने वाले टॉप 10 लोगों को मिलेगा फ्री रिचार्ज, ओर जो सबसे नंबर one आएगा उसे मिलेगा रिचार्ज के साथ - साथ 501 रूपीए का इनाम भी।</div>
+                          <div>तो अब से करो बुकिंग ऑनलाइन क्योंकि पेसे तो वो ही लगेंगे लेकिन इनाम मे भी आपका नाम आए जाएगा।</div>
                         </AlertDialogDescription>
                          <div className="text-center text-sm text-muted-foreground pt-2">
                            <span>कुछ भी सवाल है तो अभी कॉल करो</span>
@@ -423,4 +422,5 @@ export default function CartPage() {
       )}
     </div>
   );
-}
+
+    
