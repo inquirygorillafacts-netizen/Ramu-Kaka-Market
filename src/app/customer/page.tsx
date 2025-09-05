@@ -105,7 +105,7 @@ export default function CustomerPage() {
   const getBannerUrl = (id: string) => banners.find(b => b.id === id)?.imageUrl;
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 md:p-6 space-y-6 bg-background min-h-screen">
         {/* Header */}
         <div className="flex justify-between items-center">
             <Avatar>

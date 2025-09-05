@@ -54,9 +54,12 @@ export default function DashboardLayout({
           setUser(profile);
           
           const currentPanel = pathname.split('/')[1];
+
+          // Customer panel is no longer under this layout, so we don't check for it.
+          const validPanels = ['admin', 'delivery', 'role-selection'];
           const userRoles = Object.keys(profile.roles);
 
-          if (currentPanel !== 'role-selection' && !userRoles.includes(currentPanel)) {
+          if (validPanels.includes(currentPanel) && !userRoles.includes(currentPanel) && currentPanel !== 'role-selection') {
               toast({
                 variant: 'destructive',
                 title: 'Access Denied',
@@ -96,7 +99,7 @@ export default function DashboardLayout({
   
   const getCurrentPanelTitle = () => {
       const currentPanel = pathname.split('/').filter(Boolean)[0];
-      if (!currentPanel) return "Dashboard";
+      if (!currentPanel || currentPanel === 'role-selection') return "Dashboard";
       return currentPanel.charAt(0).toUpperCase() + currentPanel.slice(1) + " Panel";
   }
 
@@ -133,9 +136,9 @@ export default function DashboardLayout({
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={true}>
                     <Link href={`/${currentPanel}`}>
-                      {currentPanel === 'customer' && <ShoppingCart />}
                       {currentPanel === 'admin' && <LayoutDashboard />}
                       {currentPanel === 'delivery' && <Truck />}
+                       {currentPanel !== 'admin' && currentPanel !== 'delivery' && <Home />}
                       <span className="truncate">{getCurrentPanelTitle()}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -178,7 +181,7 @@ export default function DashboardLayout({
               <SidebarTrigger className="md:hidden"/>
               <div className="flex-1">
                 <h1 className="text-xl font-semibold capitalize font-headline">
-                  {pathname.split('/').filter(Boolean).pop()?.replace('-', ' ') ?? "Dashboard"}
+                  {pathname.split('/').filter(Boolean).pop()?.replace(/-/g, ' ') ?? "Dashboard"}
                 </h1>
               </div>
               <Button variant="ghost" size="icon" className="rounded-full">
