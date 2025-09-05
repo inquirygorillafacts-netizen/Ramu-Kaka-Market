@@ -1,67 +1,121 @@
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { BarChart, Users, DollarSign, Activity } from "lucide-react";
+
+'use client';
+
+import { useEffect, useState } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, User, Users, Shield, Truck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  roles: {
+    customer?: boolean;
+    admin?: { adminId: string };
+    delivery?: { deliveryId: string };
+  };
+}
 
 export default function AdminPage() {
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        const usersCollection = collection(db, 'users');
+        const userSnapshot = await getDocs(usersCollection);
+        const usersList = userSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as UserProfile));
+        setUsers(usersList);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        setError("Failed to load user data. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  const renderRoles = (roles: UserProfile['roles']) => {
+    return Object.keys(roles).map(role => {
+      let roleId = '';
+      if (role === 'admin' && roles.admin) roleId = `(${roles.admin.adminId})`;
+      if (role === 'delivery' && roles.delivery) roleId = `(${roles.delivery.deliveryId})`;
+      
+      const variant = role === 'admin' ? 'destructive' : role === 'delivery' ? 'secondary' : 'default';
+
+      return (
+        <Badge key={role} variant={variant} className="mr-1 capitalize">
+          {role} {roleId}
+        </Badge>
+      );
+    });
+  }
+
   return (
     <div className="space-y-8">
-       <div className="bg-card p-6 rounded-lg shadow-sm border">
-        <h1 className="text-3xl font-bold font-headline text-primary">Admin Dashboard</h1>
-        <p className="text-muted-foreground mt-2 font-highlight text-lg">Oversee and manage market operations.</p>
+      <div className="bg-card p-6 rounded-lg shadow-sm border">
+        <h1 className="text-3xl font-bold font-headline text-primary">User Management</h1>
+        <p className="text-muted-foreground mt-2 font-highlight text-lg">Oversee and manage all users and their roles.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">$45,231.89</div>
-            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New Customers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+235</div>
-            <p className="text-xs text-muted-foreground">+18.1% from last month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sales</CardTitle>
-            <BarChart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+12,234</div>
-            <p className="text-xs text-muted-foreground">+19% from last month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Now</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+573</div>
-            <p className="text-xs text-muted-foreground">+20 since last hour</p>
-          </CardContent>
-        </Card>
-      </div>
-      
       <Card>
         <CardHeader>
-          <CardTitle>Management Area</CardTitle>
-          <CardDescription>Placeholder for future management tools and reports.</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-6 h-6" />
+            <span>All Users</span>
+          </CardTitle>
+          <CardDescription>A list of all users in the system. You can manage their roles here.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mt-8 flex flex-col items-center justify-center text-muted-foreground/50 space-y-4 h-64 border-2 border-dashed rounded-lg">
-            <BarChart className="w-16 h-16"/>
-            <p>Admin tools and data visualizations will be displayed here.</p>
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <p className="ml-2 text-muted-foreground">Loading users...</p>
+            </div>
+          ) : error ? (
+            <div className="text-destructive text-center h-64 flex items-center justify-center">
+              <p>{error}</p>
+            </div>
+          ) : (
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Roles</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.name}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>{renderRoles(user.roles)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm">Manage Roles</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
