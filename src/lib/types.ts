@@ -10,8 +10,8 @@ export interface UserProfile {
     village?: string;
     address?: string;
     pincode?: string;
-    mapIp1?: string;
-    mapIp2?: string;
+    mapLat?: string;
+    mapLng?: string;
     paymentMethod?: 'COD' | 'Online';
   }
   
@@ -54,6 +54,8 @@ export interface UserProfile {
     customerAddress?: string;
     customerPincode?: string;
     customerMobile?: string;
+    mapLat?: string;
+    mapLng?: string;
   }
 
     

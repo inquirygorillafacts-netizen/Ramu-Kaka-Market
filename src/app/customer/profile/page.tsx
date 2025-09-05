@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { User as UserIcon, Camera, Save, MapPin, Phone, Home, Hash, Key, CreditCard } from 'lucide-react';
+import { User as UserIcon, Camera, Save, MapPin, Phone, Home, Hash, CreditCard, Globe } from 'lucide-react';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -16,33 +16,61 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { UserProfile } from '@/lib/types';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { Loader2 } from 'lucide-react';
 
 
 export default function ProfilePage() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Partial<UserProfile>>({
     name: '',
     mobile: '',
     village: '',
     address: '',
     pincode: '',
-    mapIp1: '',
-    mapIp2: '',
+    mapLat: '',
+    mapLng: '',
     paymentMethod: 'COD',
     photoUrl: '',
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem('ramukaka_profile');
-    if (savedProfile) {
-      const parsedProfile = JSON.parse(savedProfile);
-      setProfile(parsedProfile);
-      if (parsedProfile.photoUrl) {
-          setPhotoPreview(parsedProfile.photoUrl);
-      }
-    }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if(user) {
+            setCurrentUser(user);
+            // Fetch Firebase profile
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            const firebaseProfile: Partial<UserProfile> = userDoc.exists() ? userDoc.data() : {};
+            
+            // Load local profile
+            const savedProfile = localStorage.getItem('ramukaka_profile');
+            const localProfile: Partial<UserProfile> = savedProfile ? JSON.parse(savedProfile) : {};
+
+            // Merge profiles - Firebase data takes precedence for name and map, rest is local
+            const mergedProfile = {
+                ...localProfile,
+                name: firebaseProfile.name || localProfile.name || '',
+                photoUrl: firebaseProfile.photoUrl || localProfile.photoUrl || '',
+                mapLat: firebaseProfile.mapLat || localProfile.mapLat || '',
+                mapLng: firebaseProfile.mapLng || localProfile.mapLng || '',
+            };
+
+            setProfile(mergedProfile);
+            setPhotoPreview(mergedProfile.photoUrl || null);
+
+        } else {
+            // Handle logged out state if necessary
+        }
+        setLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,21 +90,44 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSave = () => {
-    // In a real app with a backend, we would upload the image file here.
-    // For now, we'll just save the preview URL if it's a new file,
-    // or keep the existing URL.
-    const profileToSave = {
-        ...profile,
-        photoUrl: photoPreview // This will be a blob URL for new uploads
-    };
+  const handleSave = async () => {
+    if(!currentUser) {
+        toast({variant: 'destructive', title: 'Not Logged In', description: 'You must be logged in to save your profile.'});
+        return;
+    }
+    setSaving(true);
+    try {
+        const firebaseData: Partial<UserProfile> = {
+            name: profile.name,
+            mapLat: profile.mapLat,
+            mapLng: profile.mapLng,
+        };
+        // In a real app, photo would be uploaded and URL updated in firebase too.
+        // For now, we only update name and map coords.
+        await updateDoc(doc(db, 'users', currentUser.uid), firebaseData);
+        
+        // Save other fields locally
+        localStorage.setItem('ramukaka_profile', JSON.stringify({
+            ...profile,
+            name: firebaseData.name // ensure local name is also updated
+        }));
+        
+        toast({
+          title: 'Profile Saved!',
+          description: 'Your information has been updated.',
+        });
 
-    localStorage.setItem('ramukaka_profile', JSON.stringify(profileToSave));
-    toast({
-      title: 'Profile Saved!',
-      description: 'Your information has been saved locally on your device.',
-    });
+    } catch (error) {
+        console.error("Error saving profile:", error);
+        toast({variant: 'destructive', title: 'Error', description: 'Could not save your profile.'});
+    } finally {
+        setSaving(false);
+    }
   };
+  
+  if (loading) {
+    return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin" /></div>;
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -98,7 +149,7 @@ export default function ProfilePage() {
                 <Label htmlFor="photo-upload" className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                     <Camera className="w-8 h-8"/>
                 </Label>
-                <Input id="photo-upload" type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} />
+                <Input id="photo-upload" type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} disabled={saving}/>
             </div>
         </div>
         
@@ -107,42 +158,42 @@ export default function ProfilePage() {
                 <Label htmlFor="name">Full Name</Label>
                 <div className="relative">
                     <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="name" value={profile.name} onChange={handleChange} placeholder="e.g. Priya Sharma" className="pl-10"/>
+                    <Input id="name" value={profile.name} onChange={handleChange} placeholder="e.g. Priya Sharma" className="pl-10" disabled={saving}/>
                 </div>
             </div>
             <div className="space-y-2">
                 <Label htmlFor="mobile">Mobile Number</Label>
                  <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="mobile" value={profile.mobile} onChange={handleChange} placeholder="e.g. 9876543210" className="pl-10"/>
+                    <Input id="mobile" value={profile.mobile} onChange={handleChange} placeholder="e.g. 9876543210" className="pl-10" disabled={saving}/>
                 </div>
             </div>
              <div className="space-y-2">
                 <Label htmlFor="village">Village/Town Name</Label>
                  <div className="relative">
                     <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="village" value={profile.village} onChange={handleChange} placeholder="e.g. Rampur" className="pl-10"/>
+                    <Input id="village" value={profile.village} onChange={handleChange} placeholder="e.g. Rampur" className="pl-10" disabled={saving}/>
                 </div>
             </div>
             <div className="space-y-2">
                 <Label htmlFor="address">Full Address (House, Street etc.)</Label>
                  <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="address" value={profile.address} onChange={handleChange} placeholder="e.g. 123, Ganga Nagar" className="pl-10"/>
+                    <Input id="address" value={profile.address} onChange={handleChange} placeholder="e.g. 123, Ganga Nagar" className="pl-10" disabled={saving}/>
                 </div>
             </div>
              <div className="space-y-2">
                 <Label htmlFor="pincode">Pincode</Label>
                  <div className="relative">
                     <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="pincode" value={profile.pincode} onChange={handleChange} placeholder="e.g. 110011" className="pl-10"/>
+                    <Input id="pincode" value={profile.pincode} onChange={handleChange} placeholder="e.g. 110011" className="pl-10" disabled={saving}/>
                 </div>
             </div>
              <div className="space-y-2">
                 <Label htmlFor="paymentMethod">Preferred Payment</Label>
                  <div className="relative">
                     <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                     <Select value={profile.paymentMethod} onValueChange={handleSelectChange}>
+                     <Select value={profile.paymentMethod} onValueChange={handleSelectChange} disabled={saving}>
                         <SelectTrigger className="pl-10">
                             <SelectValue placeholder="Select payment method" />
                         </SelectTrigger>
@@ -154,18 +205,24 @@ export default function ProfilePage() {
                 </div>
             </div>
             <div className="space-y-2 md:col-span-2">
-                <Label>Google Map IP (Optional)</Label>
-                <div className="grid grid-cols-2 gap-4">
-                    <Input id="mapIp1" value={profile.mapIp1} onChange={handleChange} placeholder="Latitude" disabled/>
-                    <Input id="mapIp2" value={profile.mapIp2} onChange={handleChange} placeholder="Longitude" disabled/>
+                <Label htmlFor="mapLat">Google Map Coordinates (Optional)</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <div className="relative">
+                        <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input id="mapLat" value={profile.mapLat} onChange={handleChange} placeholder="Latitude" className="pl-10" disabled={saving}/>
+                    </div>
+                     <div className="relative">
+                        <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input id="mapLng" value={profile.mapLng} onChange={handleChange} placeholder="Longitude" className="pl-10" disabled={saving}/>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div className="flex justify-end">
-            <Button onClick={handleSave} className="h-11">
-                <Save className="mr-2 h-5 w-5"/>
-                Save Changes
+            <Button onClick={handleSave} className="h-11" disabled={saving}>
+                {saving ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <Save className="mr-2 h-5 w-5"/>}
+                {saving ? 'Saving...' : 'Save Changes'}
             </Button>
         </div>
       </div>

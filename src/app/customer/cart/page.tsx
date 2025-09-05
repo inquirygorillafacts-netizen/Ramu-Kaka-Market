@@ -4,24 +4,24 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Product, CartItem, UserProfile, Order } from '@/lib/types';
-import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle } from 'lucide-react';
+import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon } from 'lucide-react';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { addDoc, collection } from 'firebase/firestore';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { addDoc, collection, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 
 declare const Razorpay: any;
@@ -29,8 +29,10 @@ declare const Razorpay: any;
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [profile, setProfile] = useState<Partial<UserProfile>>({});
+  const [orderData, setOrderData] = useState({ name: '', mobile: '', address: '', pincode: '', village: '' });
   const [loading, setLoading] = useState(true);
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -48,15 +50,36 @@ export default function CartPage() {
   },[router])
 
   useEffect(() => {
-    const savedCart = localStorage.getItem('ramukaka_cart');
-    const savedProfile = localStorage.getItem('ramukaka_profile');
-    if (savedCart) {
-      setCart(JSON.parse(savedCart));
+    const loadData = async () => {
+        const savedCart = localStorage.getItem('ramukaka_cart');
+        if (savedCart) setCart(JSON.parse(savedCart));
+
+        // Load local profile for quick display
+        const savedProfile = localStorage.getItem('ramukaka_profile');
+        const localProfile: Partial<UserProfile> = savedProfile ? JSON.parse(savedProfile) : {};
+
+        let finalProfile = localProfile;
+
+        // If user is logged in, fetch from Firebase to get latest name/map coords
+        const user = auth.currentUser;
+        if(user) {
+             const userDoc = await getDoc(doc(db, 'users', user.uid));
+             if (userDoc.exists()) {
+                 const firebaseProfile = userDoc.data();
+                 finalProfile = { ...localProfile, ...firebaseProfile };
+             }
+        }
+        setProfile(finalProfile);
+        setOrderData({
+            name: finalProfile.name || '',
+            mobile: finalProfile.mobile || '',
+            address: finalProfile.address || '',
+            pincode: finalProfile.pincode || '',
+            village: finalProfile.village || '',
+        });
+        setLoading(false);
     }
-    if (savedProfile) {
-      setProfile(JSON.parse(savedProfile));
-    }
-    setLoading(false);
+    loadData();
   }, []);
 
   const updateCart = (newCart: CartItem[]) => {
@@ -97,9 +120,8 @@ export default function CartPage() {
         return;
     }
 
-    if (!profile.name || !profile.mobile || !profile.address || !profile.pincode) {
-        toast({ variant: 'destructive', title: 'Profile Incomplete', description: 'Please complete your profile before placing an order.' });
-        router.push('/customer/profile');
+    if (!orderData.name || !orderData.mobile || !orderData.address || !orderData.pincode) {
+        toast({ variant: 'destructive', title: 'Information Missing', description: 'Please fill all address and contact details.' });
         return;
     }
 
@@ -126,20 +148,23 @@ export default function CartPage() {
                     await saveOrderToFirebase(response.razorpay_payment_id);
                 },
                 prefill: {
-                    name: profile.name,
+                    name: orderData.name,
                     email: currentUser.email,
-                    contact: profile.mobile
+                    contact: orderData.mobile
                 },
                 theme: {
                     color: "#4CAF50"
                 }
             };
             const rzp = new Razorpay(options);
+            rzp.on('payment.failed', function (response:any) {
+                toast({ variant: 'destructive', title: 'Payment Failed', description: response.error.description });
+                setPlacingOrder(false);
+            });
             rzp.open();
         } catch (error) {
             console.error("Razorpay error:", error);
             toast({ variant: 'destructive', title: 'Payment Error', description: 'Could not initiate online payment.' });
-        } finally {
             setPlacingOrder(false);
         }
 
@@ -154,10 +179,12 @@ export default function CartPage() {
     try {
         await addDoc(collection(db, 'orders'), {
             customerId: currentUser.uid,
-            customerName: profile.name,
-            customerAddress: profile.address,
-            customerPincode: profile.pincode,
-            customerMobile: profile.mobile,
+            customerName: orderData.name,
+            customerAddress: `${orderData.address}, ${orderData.village}`,
+            customerPincode: orderData.pincode,
+            customerMobile: orderData.mobile,
+            mapLat: profile.mapLat || null,
+            mapLng: profile.mapLng || null,
             items: cart.map(item => ({...item, rating: null, keywords: null})),
             total: getCartTotal(),
             status: 'Pending',
@@ -171,6 +198,7 @@ export default function CartPage() {
             description: 'Your order has been successfully placed.',
         });
         updateCart([]); // Clear the cart
+        setIsConfirmOpen(false);
         router.push('/customer/orders');
     } catch (error) {
       console.error('Error placing order: ', error);
@@ -252,43 +280,56 @@ export default function CartPage() {
                 </div>
             </div>
 
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button className="w-full h-12 text-lg" disabled={placingOrder}>
-                    {placingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShoppingBasket className="mr-2 h-5 w-5"/>}
+            <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+              <DialogTrigger asChild>
+                <Button className="w-full h-12 text-lg">
+                    <ShoppingBasket className="mr-2 h-5 w-5"/>
                     Place Order
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Confirm Your Order</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Your order will be delivered to the address below. Please confirm.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <div className="my-4 p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
-                    <p><strong className="font-medium text-foreground">Name:</strong> {profile.name}</p>
-                    <p><strong className="font-medium text-foreground">Address:</strong> {profile.address}, {profile.village}</p>
-                    <p><strong className="font-medium text-foreground">Pincode:</strong> {profile.pincode}</p>
-                    <p><strong className="font-medium text-foreground">Mobile:</strong> {profile.mobile}</p>
-                    <Separator className="my-2"/>
-                    <p className="font-bold"><strong className="font-medium text-foreground">Payment:</strong> {profile.paymentMethod}</p>
-                </div>
-                {(!profile.name || !profile.address || !profile.pincode) && (
-                    <div className="flex items-center gap-2 text-destructive p-2 rounded-md border border-destructive/50 bg-destructive/10">
-                        <AlertTriangle className="w-5 h-5"/>
-                        <p className="text-sm font-medium">Your profile is incomplete. Please update it.</p>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Confirm Delivery Details</DialogTitle>
+                  <DialogDescription>
+                    Your order will be delivered to this address. You can edit the details for this specific order.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="my-4 space-y-4">
+                  <div className="space-y-2">
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input id="name" value={orderData.name} onChange={(e) => setOrderData({...orderData, name: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="mobile">Mobile Number</Label>
+                      <Input id="mobile" value={orderData.mobile} onChange={(e) => setOrderData({...orderData, mobile: e.target.value})} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="address">Address (House, Street)</Label>
+                        <Input id="address" value={orderData.address} onChange={(e) => setOrderData({...orderData, address: e.target.value})} />
                     </div>
-                )}
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Go Back</AlertDialogCancel>
-                  <AlertDialogAction onClick={handlePlaceOrder} disabled={placingOrder || !profile.name || !profile.address}>
-                    {placingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Confirm & Proceed
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                     <div className="space-y-2">
+                        <Label htmlFor="village">Village/Town</Label>
+                        <Input id="village" value={orderData.village} onChange={(e) => setOrderData({...orderData, village: e.target.value})} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="pincode">Pincode</Label>
+                      <Input id="pincode" value={orderData.pincode} onChange={(e) => setOrderData({...orderData, pincode: e.target.value})} />
+                  </div>
+                  <Separator/>
+                  <p className="text-sm">Payment Method: <span className="font-bold">{profile.paymentMethod}</span></p>
+                </div>
+                
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsConfirmOpen(false)} disabled={placingOrder}>Go Back</Button>
+                  <Button onClick={handlePlaceOrder} disabled={placingOrder}>
+                    {placingOrder ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {placingOrder ? 'Processing...' : `Pay ₹${getCartTotal().toFixed(2)}`}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
         </div>
       )}
     </div>

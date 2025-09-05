@@ -1,10 +1,9 @@
-
 'use client';
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
-import { Truck, Package, CheckCircle, Clock, PackageCheck, AlertTriangle } from "lucide-react";
+import { Truck, Package, CheckCircle, Clock, PackageCheck, AlertTriangle, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
-import { onSnapshot, query, where, collection, doc, updateDoc, getDoc, Timestamp } from "firebase/firestore";
+import { onSnapshot, query, where, collection, doc, updateDoc, getDoc, Timestamp, orderBy } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { Order } from "@/lib/types";
@@ -14,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { UserProfile } from "@/app/(panels)/admin/RoleManager";
+import Link from 'next/link';
 
 export default function DeliveryPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -48,7 +48,8 @@ export default function DeliveryPage() {
     setLoading(true);
     const q = query(
       collection(db, 'orders'),
-      where('deliveryId', '==', deliveryProfile.id)
+      where('deliveryId', '==', deliveryProfile.id),
+      orderBy('createdAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -60,9 +61,7 @@ export default function DeliveryPage() {
           createdAt: (data.createdAt as Timestamp).toDate(),
         } as Order;
       });
-      // Sort tasks by date client-side
-      const sortedTasks = ordersList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-      setTasks(sortedTasks);
+      setTasks(ordersList);
       setLoading(false);
     }, (err) => {
       console.error("Error fetching tasks:", err);
@@ -87,6 +86,8 @@ export default function DeliveryPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to update status.' });
     }
   };
+
+  const getMapUrl = (lat: string, lng: string) => `https://www.google.com/maps?q=${lat},${lng}`;
 
   const pendingTasks = tasks.filter(t => t.status === 'Assigned').length;
   const inTransitTasks = tasks.filter(t => t.status === 'Out for Delivery').length;
@@ -171,8 +172,20 @@ export default function DeliveryPage() {
                             <div>
                                 <CardTitle className="text-lg">Order for {task.customerName}</CardTitle>
                                 <CardDescription>ID: {task.id.substring(0,7)}... | Placed: {task.createdAt.toLocaleDateString()}</CardDescription>
+                                <div className="text-sm text-muted-foreground mt-2">{task.customerAddress}, {task.customerPincode}</div>
+                                <div className="text-sm text-muted-foreground">{task.customerMobile}</div>
                             </div>
-                            <Badge variant={task.status === 'Delivered' ? 'default' : 'secondary'} className={task.status === 'Delivered' ? 'bg-green-500' : ''}>{task.status}</Badge>
+                            <div className="flex flex-col items-end gap-2">
+                               <Badge variant={task.status === 'Delivered' ? 'default' : 'secondary'} className={task.status === 'Delivered' ? 'bg-green-500' : ''}>{task.status}</Badge>
+                               {task.mapLat && task.mapLng && (
+                                 <Button asChild variant="outline" size="sm" className="mt-2">
+                                     <Link href={getMapUrl(task.mapLat, task.mapLng)} target="_blank">
+                                        <MapPin className="mr-2 h-4 w-4"/>
+                                        View Map
+                                     </Link>
+                                 </Button>
+                               )}
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
@@ -7,7 +6,7 @@ import { db, auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Users, AlertTriangle, Package, ShoppingBasket, PlusCircle, User, Truck, Star, Image as ImageIcon, Upload } from 'lucide-react';
+import { Loader2, Users, AlertTriangle, Package, ShoppingBasket, PlusCircle, User, Truck, Star, Image as ImageIcon, Upload, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -18,6 +17,7 @@ import ProductForm from './ProductForm';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Product, Order } from '@/lib/types';
 import NextImage from 'next/image';
+import Link from 'next/link';
 
 const IMGBB_API_KEY = '43d1267c74925ed8af33485644bfaa6b';
 
@@ -177,6 +177,8 @@ export default function AdminPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Could not assign delivery personnel.' });
       }
   }
+  
+  const getMapUrl = (lat: string, lng: string) => `https://www.google.com/maps?q=${lat},${lng}`;
 
   const renderRoles = (roles: UserProfile['roles']) => Object.entries(roles).map(([role, value]) => <Badge key={role} variant={role === 'admin' ? 'destructive' : 'secondary'} className="mr-1 capitalize">{role}</Badge>);
   const getStatusBadge = (status: string) => {
@@ -224,7 +226,7 @@ export default function AdminPage() {
                     <TableHead>Customer</TableHead>
                     <TableHead>Total</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Items</TableHead>
+                    <TableHead>Location</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Assign Delivery</TableHead>
                   </TableRow>
@@ -232,10 +234,24 @@ export default function AdminPage() {
                 <TableBody>
                   {orders.map(order => (
                     <TableRow key={order.id}>
-                      <TableCell className="font-medium">{order.customerName}</TableCell>
+                      <TableCell>
+                          <div className="font-medium">{order.customerName}</div>
+                          <div className="text-sm text-muted-foreground">{order.customerMobile}</div>
+                      </TableCell>
                       <TableCell>₹{order.total.toFixed(2)}</TableCell>
                       <TableCell>{getStatusBadge(order.status)}</TableCell>
-                      <TableCell>{order.items.length}</TableCell>
+                      <TableCell>
+                         {order.mapLat && order.mapLng ? (
+                           <Button asChild variant="outline" size="sm">
+                             <Link href={getMapUrl(order.mapLat, order.mapLng)} target="_blank">
+                               <MapPin className="mr-2 h-4 w-4" />
+                               View on Map
+                             </Link>
+                           </Button>
+                         ) : (
+                           <span className="text-muted-foreground text-xs">{order.customerAddress}</span>
+                         )}
+                      </TableCell>
                       <TableCell>{order.createdAt.toLocaleDateString()}</TableCell>
                       <TableCell>
                         {order.status === 'Pending' ? (
