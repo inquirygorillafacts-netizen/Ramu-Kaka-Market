@@ -4,7 +4,7 @@
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Truck, Package, CheckCircle, Clock, PackageCheck, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { onSnapshot, query, where, collection, doc, updateDoc, getDoc, Timestamp, orderBy } from "firebase/firestore";
+import { onSnapshot, query, where, collection, doc, updateDoc, getDoc, Timestamp } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { Order } from "@/lib/types";
@@ -48,8 +48,7 @@ export default function DeliveryPage() {
     setLoading(true);
     const q = query(
       collection(db, 'orders'),
-      where('deliveryId', '==', deliveryProfile.id),
-      orderBy('createdAt', 'desc')
+      where('deliveryId', '==', deliveryProfile.id)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -61,7 +60,9 @@ export default function DeliveryPage() {
           createdAt: (data.createdAt as Timestamp).toDate(),
         } as Order;
       });
-      setTasks(ordersList);
+      // Sort tasks by date client-side
+      const sortedTasks = ordersList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      setTasks(sortedTasks);
       setLoading(false);
     }, (err) => {
       console.error("Error fetching tasks:", err);
