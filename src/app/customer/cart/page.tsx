@@ -72,10 +72,10 @@ export default function CartPage() {
                  const fbProfile = userDoc.data();
                  finalProfile = {
                    name: fbProfile.name || localProfile.name || '',
-                   mobile: localProfile.mobile || '',
-                   address: localProfile.address || '',
-                   village: localProfile.village || '',
-                   pincode: localProfile.pincode || '',
+                   mobile: localProfile.mobile || fbProfile.mobile || '',
+                   address: localProfile.address || fbProfile.address || '',
+                   village: localProfile.village || fbProfile.village || '',
+                   pincode: localProfile.pincode || fbProfile.pincode || '',
                    mapLat: fbProfile.mapLat || localProfile.mapLat || '',
                    mapLng: fbProfile.mapLng || localProfile.mapLng || '',
                    photoUrl: fbProfile.photoUrl || localProfile.photoUrl || '',
@@ -139,7 +139,7 @@ export default function CartPage() {
           return;
       }
       
-      // If form details are not filled, always open the dialog
+      // If form details are not filled, always open the dialog first
       if (!orderData.name || !orderData.mobile || !orderData.address || !orderData.pincode) {
           setIsCheckoutDialogOpen(true);
           return;
@@ -250,6 +250,7 @@ export default function CartPage() {
         updateCart([]); // Clear the cart
         setIsCheckoutDialogOpen(false);
         setIsPromoDialogOpen(false);
+        setIsCodConfirmOpen(false);
         router.push('/customer/orders');
     } catch (error) {
       console.error('Error placing order: ', error);
@@ -441,9 +442,11 @@ export default function CartPage() {
             <AlertDialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
               <AlertDialogContent className="max-w-md">
                    <AlertDialogHeader>
-                      <AlertDialogCancel className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground p-1.5">
-                          <X className="h-4 w-4" />
-                          <span className="sr-only">Close</span>
+                      <AlertDialogCancel asChild>
+                        <Button variant="ghost" size="icon" className="absolute right-4 top-4 rounded-full" onClick={() => setIsPromoDialogOpen(false)}>
+                            <X className="h-4 w-4" />
+                            <span className="sr-only">Close</span>
+                        </Button>
                       </AlertDialogCancel>
                       <div className="flex justify-center mb-4">
                           <div className="p-3 bg-yellow-100 rounded-full">
@@ -496,3 +499,4 @@ export default function CartPage() {
   );
 
 }
+
