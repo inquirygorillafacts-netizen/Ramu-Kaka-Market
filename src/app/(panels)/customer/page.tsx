@@ -53,7 +53,7 @@ export default function CustomerPage() {
   useEffect(() => {
     if (!currentUser) return;
     setLoadingOrders(true);
-    const q = query(collection(db, 'orders'), where('customerId', '==', currentUser.uid), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'orders'), where('customerId', '==', currentUser.uid));
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const ordersData: Order[] = [];
@@ -65,7 +65,7 @@ export default function CustomerPage() {
                 createdAt: (data.createdAt as Timestamp).toDate(),
             } as Order);
         });
-        setOrders(ordersData);
+        setOrders(ordersData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()));
         setLoadingOrders(false);
     }, (error) => {
         console.error("Error fetching orders:", error);
@@ -126,7 +126,7 @@ export default function CustomerPage() {
       await addDoc(collection(db, 'orders'), {
         customerId: currentUser.uid,
         customerName: currentUser.displayName || 'Anonymous',
-        items: cart,
+        items: cart.map(item => ({...item, rating: null, keywords: null})), // Strip non-essential product data
         total: getCartTotal(),
         status: 'Pending',
         createdAt: new Date(),
@@ -315,3 +315,5 @@ export default function CustomerPage() {
     </Tabs>
   );
 }
+
+    
