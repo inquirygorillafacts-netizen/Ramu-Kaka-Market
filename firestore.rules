@@ -23,13 +23,6 @@ service cloud.firestore {
       return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin is map;
     }
     
-    // उपयोगकर्ता की डिलीवरी आईडी प्राप्त करता है (सुरक्षित रूप से)
-    function getDeliveryId() {
-        // यह पहले जाँचता है कि delivery भूमिका मौजूद है या नहीं, फिर ID लौटाता है
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.get('delivery', {}).get('deliveryId', null);
-    }
-
-
     // =================================
     // Rules for the 'users' collection
     // =================================
@@ -58,12 +51,12 @@ service cloud.firestore {
     // =================================
     match /orders/{orderId} {
       // पढ़ने का नियम (READ):
-      // ग्राहक अपना ऑर्डर देख सकता है,
-      // डिलीवरी बॉय उसे सौंपा गया ऑर्डर देख सकता है,
-      // और एडमिन कोई भी ऑर्डर देख सकता है।
-      allow read: if (isAuth() && resource.data.customerId == request.auth.uid) || 
-                   (isAuth() && resource.data.assignedTo == getDeliveryId()) ||
-                   isAdmin();
+      // 1. एडमिन कोई भी ऑर्डर पढ़ सकता है।
+      // 2. ग्राहक अपना खुद का ऑर्डर पढ़ सकता है।
+      // 3. डिलीवरी बॉय उसे सौंपा गया ऑर्डर पढ़ सकता है।
+      allow read: if isAdmin() ||
+                   (isAuth() && resource.data.customerId == request.auth.uid) ||
+                   (isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.delivery.deliveryId == resource.data.assignedTo);
                    
       // बनाने का नियम (CREATE):
       // केवल प्रमाणित उपयोगकर्ता (ग्राहक) और एडमिन ही ऑर्डर बना सकते हैं।
