@@ -7,11 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Phone, Mail, Lock, Image as ImageIcon } from 'lucide-react';
+import { User, Phone, Mail, Lock, Image as ImageIcon, UploadCloud, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import Image from 'next/image';
+
+const IMGBB_API_KEY = '43d1267c74925ed8af33485644bfaa6b';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(false);
@@ -22,12 +25,48 @@ export default function AuthPage() {
     mobile: '',
     email: '',
     password: '',
-    photoUrl: '',
   });
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleImageUpload = async (file: File): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        return result.data.url;
+      } else {
+        throw new Error(result.error.message || 'Image upload failed');
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Image Upload Failed',
+        description: error.message || 'Could not upload image to ImgBB.',
+      });
+      return null;
+    }
   };
 
   const handleRegister = async () => {
@@ -39,16 +78,27 @@ export default function AuthPage() {
       });
       return;
     }
+    setIsLoading(true);
+
+    let photoUrl = '';
+    if (photoFile) {
+      const uploadedUrl = await handleImageUpload(photoFile);
+      if (!uploadedUrl) {
+        setIsLoading(false);
+        return; // Stop registration if image upload fails
+      }
+      photoUrl = uploadedUrl;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
-      // Now, save user info to Firestore
       await setDoc(doc(db, 'users', user.uid), {
         name: formData.name,
         email: formData.email,
         mobile: formData.mobile,
-        photoUrl: formData.photoUrl,
+        photoUrl: photoUrl,
         roles: ['customer'], // Default role
       });
 
@@ -71,6 +121,8 @@ export default function AuthPage() {
         title: 'Registration Failed',
         description: error.message,
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -83,11 +135,11 @@ export default function AuthPage() {
       });
       return;
     }
+    setIsLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
       
-      // Get user roles from Firestore
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
@@ -119,6 +171,8 @@ export default function AuthPage() {
         title: 'Login Failed',
         description: error.message,
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -147,24 +201,35 @@ export default function AuthPage() {
             {!isLogin && (
               <>
                 <div className="space-y-2">
+                  <Label htmlFor="photo">Profile Photo</Label>
+                  <div className="flex items-center space-x-4">
+                    <div className="w-20 h-20 rounded-full bg-muted border border-dashed flex items-center justify-center overflow-hidden">
+                      {photoPreview ? (
+                        <Image src={photoPreview} alt="Preview" width={80} height={80} className="object-cover w-full h-full" />
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                      )}
+                    </div>
+                    <Label htmlFor="photo-upload" className="flex-1 h-20 bg-muted/50 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors">
+                        <UploadCloud className="w-6 h-6 text-muted-foreground mb-1" />
+                        <span className="text-xs text-muted-foreground text-center">Click to upload image</span>
+                    </Label>
+                    <Input id="photo-upload" type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
                     <Label htmlFor="name">Name</Label>
                     <div className="relative">
                          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                         <Input id="name" type="text" placeholder="e.g. Priya Sharma" required className="pl-10" value={formData.name} onChange={handleChange} />
+                         <Input id="name" type="text" placeholder="e.g. Priya Sharma" required className="pl-10" value={formData.name} onChange={handleChange} disabled={isLoading} />
                     </div>
                 </div>
-                <div className="space-y-2">
+                 <div className="space-y-2">
                     <Label htmlFor="mobile">Mobile Number</Label>
                     <div className="relative">
                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                         <Input id="mobile" type="tel" placeholder="e.g. 9876543210" required className="pl-10" value={formData.mobile} onChange={handleChange} />
-                    </div>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="photoUrl">Photo URL (Optional)</Label>
-                    <div className="relative">
-                         <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                         <Input id="photoUrl" type="text" placeholder="https://example.com/photo.jpg" className="pl-10" value={formData.photoUrl} onChange={handleChange} />
+                         <Input id="mobile" type="tel" placeholder="e.g. 9876543210" required className="pl-10" value={formData.mobile} onChange={handleChange} disabled={isLoading} />
                     </div>
                 </div>
               </>
@@ -173,23 +238,24 @@ export default function AuthPage() {
                 <Label htmlFor="email">Email Address</Label>
                  <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="email" type="email" placeholder="e.g. priya@example.com" required className="pl-10" value={formData.email} onChange={handleChange}/>
+                    <Input id="email" type="email" placeholder="e.g. priya@example.com" required className="pl-10" value={formData.email} onChange={handleChange} disabled={isLoading}/>
                 </div>
             </div>
             <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                  <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="password" type="password" placeholder="Create a strong password" required className="pl-10" value={formData.password} onChange={handleChange}/>
+                    <Input id="password" type="password" placeholder="Create a strong password" required className="pl-10" value={formData.password} onChange={handleChange} disabled={isLoading}/>
                 </div>
             </div>
-            <Button type="submit" className="w-full">
-              {isLogin ? 'Login' : 'Register'}
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading ? (isLogin ? 'Logging in...' : 'Registering...') : (isLogin ? 'Login' : 'Register')}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
             {isLogin ? "Don't have an account?" : 'Already have an account?'}
-            <Button variant="link" onClick={() => setIsLogin(!isLogin)} className="px-1">
+            <Button variant="link" onClick={() => setIsLogin(!isLogin)} className="px-1" disabled={isLoading}>
               {isLogin ? 'Register' : 'Login'}
             </Button>
           </div>
