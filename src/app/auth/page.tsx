@@ -11,7 +11,7 @@ import { User, Phone, Mail, Lock, Image as ImageIcon, Camera, Loader2 } from 'lu
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, getDocs, query, limit } from 'firebase/firestore';
 import Image from 'next/image';
 
 const IMGBB_API_KEY = '43d1267c74925ed8af33485644bfaa6b';
@@ -101,10 +101,25 @@ export default function AuthPage() {
     }
 
     try {
+      // Check if this is the first user
+      const usersCollection = collection(db, 'users');
+      const q = query(usersCollection, limit(1));
+      const snapshot = await getDocs(q);
+      const isFirstUser = snapshot.empty;
+
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
-      const userRoles = { customer: true };
+      const userRoles: { [key: string]: any } = { customer: true };
+      if (isFirstUser) {
+        userRoles.admin = { adminId: 'ADM-INITIAL' };
+        toast({
+            title: "Congratulations!",
+            description: "You are the first user, so you have been made an Admin.",
+            duration: 5000,
+        });
+      }
+
 
       await setDoc(doc(db, 'users', user.uid), {
         name: formData.name,
