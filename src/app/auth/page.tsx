@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Phone, Mail, Lock, Image as ImageIcon, UploadCloud, Loader2 } from 'lucide-react';
+import { User, Phone, Mail, Lock, Image as ImageIcon, UploadCloud, Loader2, Camera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
@@ -200,22 +200,22 @@ export default function AuthPage() {
           <form className="space-y-4" onSubmit={handleSubmit}>
             {!isLogin && (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="photo">Profile Photo</Label>
-                  <div className="flex items-center space-x-4">
-                    <div className="w-20 h-20 rounded-full bg-muted border border-dashed flex items-center justify-center overflow-hidden">
-                      {photoPreview ? (
-                        <Image src={photoPreview} alt="Preview" width={80} height={80} className="object-cover w-full h-full" />
-                      ) : (
-                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                      )}
+                <div className="flex justify-center">
+                    <div className="relative group">
+                        <Label htmlFor="photo-upload" className="cursor-pointer">
+                            <div className="w-24 h-24 rounded-full bg-muted border-2 border-dashed border-muted-foreground/50 flex items-center justify-center overflow-hidden transition-colors group-hover:border-primary group-hover:bg-muted/80">
+                                {photoPreview ? (
+                                    <Image src={photoPreview} alt="Preview" width={96} height={96} className="object-cover w-full h-full" />
+                                ) : (
+                                    <ImageIcon className="w-10 h-10 text-muted-foreground/80 transition-colors group-hover:text-primary" />
+                                )}
+                            </div>
+                            <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Camera className="w-8 h-8 text-white" />
+                            </div>
+                        </Label>
+                        <Input id="photo-upload" type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} disabled={isLoading} />
                     </div>
-                    <Label htmlFor="photo-upload" className="flex-1 h-20 bg-muted/50 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors">
-                        <UploadCloud className="w-6 h-6 text-muted-foreground mb-1" />
-                        <span className="text-xs text-muted-foreground text-center">Click to upload image</span>
-                    </Label>
-                    <Input id="photo-upload" type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} />
-                  </div>
                 </div>
 
                 <div className="space-y-2">
