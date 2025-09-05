@@ -1,10 +1,11 @@
-
 'use client';
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { HelpCircle, LifeBuoy, Phone } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
 
 const faqs = [
     {
@@ -58,6 +59,29 @@ export default function HelpPage() {
         </Card>
 
         <Card className="animate-fade-in-up" style={{animationDelay: '100ms'}}>
+             <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Image src="/whatsapp.svg" alt="Whatsapp Icon" width={24} height={24} />
+                    <span>हमारे व्हाट्सएप समुदाय से जुड़ें</span>
+                </CardTitle>
+                 <CardDescription>
+                    सीधे हमसे और अन्य ग्राहकों से जुड़ें।
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <p className="text-muted-foreground text-sm">
+                   सर्वोत्तम ऑफर, डिस्काउंट की जानकारी पाएं, अपने अनुभव साझा करें, और अपने सभी सवालों के जवाब तुरंत प्राप्त करें। हम और हमारी टीम आपकी मदद करने और आपकी सलाह सुनने के लिए ग्रुप में मौजूद हैं!
+                </p>
+                <Button asChild className="w-full bg-green-500 hover:bg-green-600 text-white">
+                    <Link href="https://chat.whatsapp.com/G0tXobjgzo70nClvmNGHvc" target="_blank">
+                        <Image src="/whatsapp-white.svg" alt="Whatsapp Icon" width={20} height={20} className="mr-2"/>
+                        Join WhatsApp Group
+                    </Link>
+                </Button>
+            </CardContent>
+        </Card>
+
+        <Card className="animate-fade-in-up" style={{animationDelay: '200ms'}}>
              <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Phone className="w-6 h-6"/>
