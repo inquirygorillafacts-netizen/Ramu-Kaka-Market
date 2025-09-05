@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -15,52 +14,41 @@ service cloud.firestore {
       return isAuth() && request.auth.uid == userId;
     }
 
-    function getRoles() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles;
-    }
-
     function isAdmin() {
-      return isAuth() && getRoles().admin == true;
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin == true;
     }
     
     function isDelivery() {
-        return isAuth() && getRoles().delivery == true;
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.delivery == true;
     }
 
     // =================================
-    // Rules for 'users' collection
+    // Collection Rules
     // =================================
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isAuth();
+      allow create: if isAuth() && (!('admin' in request.resource.data.roles) || isAdmin());
       allow update: if (isOwner(userId) && request.resource.data.roles == resource.data.roles) || isAdmin();
       allow delete: if isOwner(userId);
     }
     
-    // =================================
-    // Rules for 'products' collection
-    // =================================
     match /products/{productId} {
-        allow read: if isAuth();
-        allow create, update, delete: if isAdmin();
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
     }
-
-    // =================================
-    // Rules for 'orders' collection
-    // =================================
+    
     match /orders/{orderId} {
-      allow read: if isAdmin() || (isAuth() && resource.data.customerId == request.auth.uid) || (isDelivery() && resource.data.deliveryId == request.auth.uid);
+      allow read: if isAdmin() || 
+                   (isAuth() && resource.data.customerId == request.auth.uid) ||
+                   (isDelivery() && resource.data.deliveryId == request.auth.uid);
       allow create: if isAuth();
       allow update: if isAdmin() || (isDelivery() && resource.data.deliveryId == request.auth.uid);
       allow delete: if isAdmin();
     }
-    
-    // =================================
-    // Rules for 'banners' collection
-    // =================================
+
     match /banners/{bannerId} {
-        allow read: if isAuth();
-        allow write: if isAdmin();
+      allow read: if isAuth();
+      allow write: if isAdmin();
     }
   }
 }
