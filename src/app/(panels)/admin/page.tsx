@@ -169,6 +169,7 @@ export default function AdminPage() {
             deliveryId: deliveryId,
             status: 'Assigned',
             deliveryPersonName: deliveryUser.name,
+            customerHasViewedUpdate: false,
         });
         toast({ title: 'Success', description: 'Delivery personnel assigned.' });
       } catch (err) {
@@ -416,5 +417,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    

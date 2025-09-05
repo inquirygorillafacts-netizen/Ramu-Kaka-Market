@@ -31,7 +31,7 @@ export interface UserProfile {
   }
   
   export interface Order {
-    id: string;
+    id:string;
     customerId: string;
     customerName: string;
     items: CartItem[];
@@ -40,6 +40,7 @@ export interface UserProfile {
     createdAt: Date;
     deliveryId?: string;
     deliveryPersonName?: string;
+    customerHasViewedUpdate?: boolean;
   }
 
     

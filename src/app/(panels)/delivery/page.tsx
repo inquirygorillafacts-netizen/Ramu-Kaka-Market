@@ -77,7 +77,10 @@ export default function DeliveryPage() {
   const handleStatusUpdate = async (orderId: string, status: string) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
-      await updateDoc(orderRef, { status });
+      await updateDoc(orderRef, { 
+        status: status,
+        customerHasViewedUpdate: false,
+      });
       toast({ title: 'Success', description: 'Order status updated successfully.' });
     } catch (err) {
       console.error("Error updating status:", err);

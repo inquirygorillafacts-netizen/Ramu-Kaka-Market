@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, addDoc, where, orderBy, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, where, orderBy, Timestamp, doc, getDoc, writeBatch } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
 
 interface Banner {
   id: string;
@@ -31,10 +33,10 @@ export default function CustomerPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [notifications, setNotifications] = useState<Order[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Auth state and user profile fetching
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
@@ -48,20 +50,17 @@ export default function CustomerPage() {
       }
     });
 
-    // Products
     const prodQuery = query(collection(db, 'products'), orderBy('name'));
     const unsubscribeProducts = onSnapshot(prodQuery, (snapshot) => {
       setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
       setLoading(false);
     });
 
-    // Banners
     const bannersQuery = query(collection(db, 'banners'), where('active', '==', true));
     const unsubscribeBanners = onSnapshot(bannersQuery, (snapshot) => {
         setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
     });
 
-    // Cart from local storage
     const savedCart = localStorage.getItem('ramukaka_cart');
     if (savedCart) {
         setCart(JSON.parse(savedCart));
@@ -75,12 +74,37 @@ export default function CustomerPage() {
   }, []);
 
   useEffect(() => {
-    // Save cart to local storage whenever it changes
+    if (!currentUser) return;
+    const q = query(
+        collection(db, 'orders'),
+        where('customerId', '==', currentUser.uid),
+        where('customerHasViewedUpdate', '==', false)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unseenOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+        setNotifications(unseenOrders);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
         localStorage.setItem('ramukaka_cart', JSON.stringify(cart));
     }
   }, [cart]);
 
+  const handleClearNotifications = async () => {
+    if (notifications.length === 0) return;
+    const batch = writeBatch(db);
+    notifications.forEach(notif => {
+        const orderRef = doc(db, 'orders', notif.id);
+        batch.update(orderRef, { customerHasViewedUpdate: true });
+    });
+    await batch.commit();
+    setNotifications([]);
+  };
 
   const filteredProducts = useMemo(() => {
     let prods = products;
@@ -103,7 +127,7 @@ export default function CustomerPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 bg-muted/20 min-h-screen">
+    <div className="p-4 md:p-6 space-y-6 bg-background min-h-screen">
         {/* Header */}
         <header className="flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -113,10 +137,38 @@ export default function CustomerPage() {
                 </Avatar>
             </div>
             <h1 className="font-bold text-lg font-headline text-primary">Ramu Kaka Market</h1>
-            <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-6 w-6"/>
-                <span className="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-background"></span>
-            </Button>
+            <Popover onOpenChange={(open) => !open && handleClearNotifications()}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                    <Bell className="h-6 w-6"/>
+                    {notifications.length > 0 && (
+                      <span className="absolute top-0 right-0 block h-5 w-5 rounded-full bg-destructive text-white text-xs flex items-center justify-center ring-2 ring-background">
+                          {notifications.length}
+                      </span>
+                    )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium leading-none">Notifications</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Recent updates on your orders.
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    {notifications.length > 0 ? notifications.map(notif => (
+                       <div key={notif.id} className="text-sm">
+                           <p>Order <span className="font-semibold">#{notif.id.substring(0, 7)}...</span> is now <span className="font-semibold text-primary">{notif.status}</span>.</p>
+                           <Separator className="my-2"/>
+                       </div>
+                    )) : (
+                      <p className="text-sm text-muted-foreground">No new notifications.</p>
+                    )}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
         </header>
 
         {/* Search */}
@@ -157,5 +209,3 @@ export default function CustomerPage() {
     </div>
   );
 }
-
-    
