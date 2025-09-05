@@ -126,20 +126,21 @@ export default function CartPage() {
         toast({ variant: 'destructive', title: 'Information Missing', description: 'Please fill all address and contact details.' });
         return;
     }
+    
+    setIsConfirmOpen(false); // Close details dialog first
 
     if (orderData.paymentMethod === 'COD') {
-        setIsConfirmOpen(false); // Close details dialog
-        setIsPromoDialogOpen(true); // Open promo dialog
+        setIsPromoDialogOpen(true); // Open promo dialog for COD
     } else {
-        await initiateOnlinePayment();
+        await initiateOnlinePayment(); // Proceed directly to payment for Online
     }
   }
 
   const handleOnlinePaymentChoice = () => {
     setIsPromoDialogOpen(false);
     toast({
-      title: 'Great choice!',
-      description: "You're now in the running to win.",
+      title: 'बहुत बढ़िया!',
+      description: "अब आप भी जीतने की दौड़ में शामिल हैं।",
     });
     initiateOnlinePayment();
   }
@@ -183,8 +184,6 @@ export default function CartPage() {
         console.error("Razorpay error:", error);
         toast({ variant: 'destructive', title: 'Payment Error', description: 'Could not initiate online payment.' });
         setPlacingOrder(false);
-    } finally {
-        setIsConfirmOpen(false); // Close details dialog
     }
   }
 
@@ -361,8 +360,7 @@ export default function CartPage() {
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsConfirmOpen(false)} disabled={placingOrder}>Go Back</Button>
                   <Button onClick={handleCheckout} disabled={placingOrder}>
-                    {placingOrder ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {placingOrder ? 'Processing...' : `Confirm & Pay ₹${getCartTotal().toFixed(2)}`}
+                    Confirm Details
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -376,19 +374,19 @@ export default function CartPage() {
                                 <Gift className="w-10 h-10 text-yellow-500" />
                             </div>
                         </div>
-                        <AlertDialogTitle className="text-center text-2xl font-headline">One More Step to Win!</AlertDialogTitle>
+                        <AlertDialogTitle className="text-center text-2xl font-headline">जीतने के लिए बस एक और कदम!</AlertDialogTitle>
                         <AlertDialogDescription className="text-center text-base">
-                            Pay online and get a chance to win exciting rewards every month, including a grand prize of ₹500!
+                            ऑनलाइन भुगतान करें और हर महीने रोमांचक पुरस्कार जीतने का मौका पाएं, जिसमें ₹500 का भव्य पुरस्कार भी शामिल है!
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2 mt-4">
                         <Button variant="outline" onClick={() => saveOrderToFirebase('COD')} disabled={placingOrder} className="w-full">
                            {placingOrder && orderData.paymentMethod === 'COD' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                           Pay with COD
+                           COD से भुगतान करें
                         </Button>
                          <Button onClick={handleOnlinePaymentChoice} disabled={placingOrder} className="w-full bg-gradient-to-r from-green-500 to-primary hover:from-green-600 hover:to-primary/90 text-white shadow-lg">
                            {placingOrder && orderData.paymentMethod === 'Online' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                           Pay Online & Win
+                           ऑनलाइन भुगतान करें और जीतें
                         </Button>
                     </AlertDialogFooter>
                 </AlertDialogContent>
