@@ -16,13 +16,13 @@ export default async function CustomerPage() {
   const personalization = await personalizeCustomerEntry(mockCustomerData);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="bg-card p-6 rounded-lg shadow-sm border">
         <h1 className="text-3xl font-bold font-headline text-primary">{personalization.welcomeMessage}</h1>
         <p className="text-muted-foreground mt-2 font-highlight text-lg">We've prepared some special offers just for you based on your preferences!</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         <Card className="flex flex-col hover:shadow-lg transition-shadow">
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -72,7 +72,7 @@ export default async function CustomerPage() {
         </CardHeader>
         <CardContent>
             <blockquote className="border-l-4 border-primary pl-4">
-              <p className="font-highlight text-lg italic text-center text-foreground/80">"The quality of produce from RamuKakaMarket is unmatched. It feels like a farmer's market at my doorstep!"</p>
+              <p className="font-highlight text-lg italic text-center text-foreground/80">"The quality of produce from Ramu Kaka Market is unmatched. It feels like a farmer's market at my doorstep!"</p>
               <footer className="text-right mt-2 text-sm text-muted-foreground">- A happy customer</footer>
             </blockquote>
         </CardContent>

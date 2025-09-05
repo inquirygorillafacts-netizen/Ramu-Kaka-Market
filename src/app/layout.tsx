@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'RamuKakaMarket',
+  title: 'Ramu Kaka Market',
   description: 'Your friendly neighborhood online market.',
 };
 

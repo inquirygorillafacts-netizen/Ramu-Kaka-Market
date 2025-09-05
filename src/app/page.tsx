@@ -71,7 +71,7 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-8 bg-background animate-fade-in">
       <div className="text-center mb-12">
-        <h1 className="text-5xl md:text-6xl font-headline text-primary">RamuKakaMarket</h1>
+        <h1 className="text-5xl md:text-6xl font-headline text-primary">Ramu Kaka Market</h1>
         <p className="text-muted-foreground mt-2 font-highlight text-xl md:text-2xl">Your friendly neighborhood online market.</p>
         <p className="mt-8 text-foreground/80">To demonstrate the app's features, please select a user profile to proceed.</p>
       </div>

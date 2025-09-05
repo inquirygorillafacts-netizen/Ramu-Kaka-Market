@@ -57,7 +57,7 @@ export default function DashboardLayout({
                 <Package className="h-6 w-6" />
               </div>
               <h2 className="text-xl font-semibold tracking-tight font-headline text-primary group-data-[collapsible=icon]:hidden">
-                RamuKakaMarket
+                Ramu Kaka Market
               </h2>
             </div>
           </SidebarHeader>
@@ -123,7 +123,7 @@ export default function DashboardLayout({
                 <span className="sr-only">Settings</span>
               </Button>
           </header>
-          <main className="flex-1 p-4 md:p-8 animate-fade-in">{children}</main>
+          <main className="flex-1 p-4 md:p-6 animate-fade-in">{children}</main>
         </SidebarInset>
       </div>
     </SidebarProvider>

@@ -48,7 +48,7 @@ const prompt = ai.definePrompt({
   name: 'personalizedCustomerEntryPrompt',
   input: {schema: PersonalizeCustomerEntryInputSchema},
   output: {schema: PersonalizeCustomerEntryOutputSchema},
-  prompt: `You are an AI assistant designed to personalize the customer's experience upon logging in to RamuKakaMarket.
+  prompt: `You are an AI assistant designed to personalize the customer's experience upon logging in to Ramu Kaka Market.
 
   Given the following information about the customer, determine the most relevant promotions, product recommendations, and a personalized welcome message.
 

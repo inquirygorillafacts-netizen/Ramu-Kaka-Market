@@ -9,7 +9,7 @@ export default function SplashScreen() {
         <Package className="w-24 h-24 text-primary animate-pulse" />
       </div>
       <h1 className="mt-8 text-4xl md:text-6xl font-headline animate-fade-in-up">
-        RamuKakaMarket
+        Ramu Kaka Market
       </h1>
     </div>
   );
