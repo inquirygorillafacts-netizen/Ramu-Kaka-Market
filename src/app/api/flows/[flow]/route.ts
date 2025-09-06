@@ -1,4 +1,4 @@
 import { defineFlows } from '@genkit-ai/next';
-import '@/ai/dev';
+import '@/ai/flows';
 
 export const { GET, POST } = defineFlows();
