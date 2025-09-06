@@ -52,13 +52,13 @@ export const conversationalAssistantFlow = chatAi.defineFlow(
       content: [{ text: msg.content }]
     }));
 
+    // The user's last message is the prompt.
+    const lastUserMessage = history.pop();
+
     const {stream} = await chatAi.generate({
       model: 'googleai/gemini-1.5-flash',
       history: history,
-      prompt: `You are "Ramu Kaka's Kitchen Expert," a super-helpful and friendly AI assistant for "Ramu Kaka Market", a local grocery store in a village in India. 
-      Your persona is like a knowledgeable family member who is an expert in the kitchen. 
-      You speak simple, conversational HINDI. Your entire response MUST be in simple, easy-to-understand Hindi. Avoid complex or technical words.
-      `,
+      prompt: lastUserMessage?.content[0].text || '',
       stream: true,
     });
     
