@@ -8,13 +8,12 @@ import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  "projectId": "ramukakamarket",
-  "appId": "1:607187252038:web:f094e13778efcd901d6b47",
-  "storageBucket": "ramukakamarket.firebasestorage.app",
-  "apiKey": "AIzaSyCnapu4Y0vw2UKhwsv4-k1BZyqksWy3pUQ",
-  "authDomain": "ramukakamarket.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "607187252038"
+  apiKey: "AIzaSyB4asjAfqJgUtUGQ9Os6g-COTsGekkea4A",
+  authDomain: "ramukakamarket.firebaseapp.com",
+  projectId: "ramukakamarket",
+  storageBucket: "ramukakamarket.firebasestorage.app",
+  messagingSenderId: "607187252038",
+  appId: "1:607187252038:web:f094e13778efcd901d6b47"
 };
 
 // Initialize Firebase
