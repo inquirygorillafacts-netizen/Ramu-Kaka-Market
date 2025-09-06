@@ -20,8 +20,6 @@ import { collection, query, where, orderBy, getDocs, limit, Timestamp, doc, getD
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Partial<UserProfile>>({});
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [lastOrder, setLastOrder] = useState<Order | null>(null);
   const [isAiResponding, setIsAiResponding] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -29,62 +27,23 @@ export default function ChatPage() {
   const { toast } = useToast();
   const { chatHistory, addMessage, updateLastMessage, clearHistory, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
             setCurrentUser(user);
-            // Load all user data in parallel
-            const profilePromise = (async () => {
-                const docRef = doc(db, 'users', user.uid);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    return docSnap.data() as UserProfile;
-                }
-                return {};
-            })();
-            const cartPromise = (async () => {
-                const savedCart = localStorage.getItem('ramukaka_cart');
-                return savedCart ? JSON.parse(savedCart) : [];
-            })();
-            const lastOrderPromise = (async () => {
-                 const q = query(
-                    collection(db, 'orders'),
-                    where('customerId', '==', user.uid),
-                    orderBy('createdAt', 'desc'),
-                    limit(1)
-                 );
-                 const querySnapshot = await getDocs(q);
-                 if (!querySnapshot.empty) {
-                    const docData = querySnapshot.docs[0].data();
-                    // Convert Firestore Timestamp to JS Date
-                    if (docData.createdAt && docData.createdAt instanceof Timestamp) {
-                        docData.createdAt = docData.createdAt.toDate();
-                    }
-                     return docData as Order;
-                 }
-                 return null;
-            })();
-
-            const [profileData, cartData, orderData] = await Promise.all([profilePromise, cartPromise, lastOrderPromise]);
-            
-            setProfile(profileData);
-            setCart(cartData);
-            setLastOrder(orderData);
-
+            const docRef = doc(db, 'users', user.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setProfile(docSnap.data() as UserProfile);
+            }
         } else {
             router.push('/auth');
         }
         setLoading(false);
     });
 
-    return () => {
-      unsubscribe();
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
+    return () => unsubscribe();
   },[router])
 
   useEffect(() => {
@@ -100,22 +59,14 @@ export default function ChatPage() {
     if (!chatInput.trim() || isAiResponding) return;
 
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
-    const currentChatHistory = [...chatHistory, userMessage];
     addMessage(userMessage);
+    const currentChatHistory = [...chatHistory, userMessage];
     setChatInput('');
     setIsAiResponding(true);
+    addMessage({ role: 'model', content: '' });
 
     try {
-        const customerContext = `
-        - Current Cart: ${cart.length > 0 ? cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ') : 'Empty'}
-        - Last Order: ${lastOrder ? `${lastOrder.items.map(item => item.name).join(', ')} on ${lastOrder.createdAt.toLocaleDateString()}` : 'None'}
-        `;
-
-        addMessage({ role: 'model', content: '' });
-
         const stream = await conversationalAssistantFlow({
-            customerName: profile.name || 'Friend',
-            customerContext: customerContext,
             chatHistory: currentChatHistory,
         });
 
@@ -124,11 +75,10 @@ export default function ChatPage() {
         }
 
     } catch (error: any) {
-        if (error.name !== 'AbortError') {
-            toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
-            // remove the empty model message and the user's message on error
-            setHistory(prev => prev.slice(0, prev.length - 2));
-        }
+        console.error("AI Error:", error);
+        toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
+        // remove the empty model message and the user's message on error
+        setHistory(prev => prev.slice(0, prev.length - 2));
     } finally {
         setIsAiResponding(false);
     }
