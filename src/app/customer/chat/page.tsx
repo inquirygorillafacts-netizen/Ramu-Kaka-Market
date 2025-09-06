@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef }from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +12,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useChatHistory } from '@/hooks/use-chat-history';
 import type { ChatMessage } from '@/ai/flows/conversational-assistant';
+import { conversationalAssistantFlow } from '@/ai/flows/conversational-assistant';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { collection, query, where, orderBy, getDocs, limit, Timestamp, doc, getDoc } from 'firebase/firestore';
 
@@ -27,6 +29,7 @@ export default function ChatPage() {
   const { toast } = useToast();
   const { chatHistory, addMessage, updateLastMessage, clearHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -75,31 +78,60 @@ export default function ChatPage() {
         }
         setLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribe();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   },[router])
 
   useEffect(() => {
     if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatHistory]);
+  }, [chatHistory, isAiResponding]);
 
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim() || isAiResponding) return;
 
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
+    const currentChatHistory = [...chatHistory, userMessage];
     addMessage(userMessage);
     setChatInput('');
+    setIsAiResponding(true);
 
-    // AI functionality is removed. The message is just added to the local history.
-    // We can add a placeholder response if needed.
-    // For example:
-    // setTimeout(() => {
-    //   addMessage({ role: 'model', content: "AI is currently offline." });
-    // }, 1000);
+    try {
+        const customerContext = `
+        - Current Cart: ${cart.length > 0 ? cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ') : 'Empty'}
+        - Last Order: ${lastOrder ? `${lastOrder.items.map(item => item.name).join(', ')} on ${lastOrder.createdAt.toLocaleDateString()}` : 'None'}
+        `;
+
+        addMessage({ role: 'model', content: '' });
+
+        const stream = await conversationalAssistantFlow({
+            customerName: profile.name || 'Friend',
+            customerContext: customerContext,
+            chatHistory: currentChatHistory,
+        });
+
+        for await (const chunk of stream) {
+            updateLastMessage(chunk);
+        }
+
+    } catch (error: any) {
+        if (error.name !== 'AbortError') {
+            toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
+            // Optionally remove the empty model message on error
+             setChatHistory(prev => prev.slice(0, prev.length -1));
+        }
+    } finally {
+        setIsAiResponding(false);
+    }
   }
 
   if (loading) {
@@ -150,13 +182,14 @@ export default function ChatPage() {
                      )}
                 </div>
             ))}
-             {isAiResponding && (
-                <div className="flex justify-start">
+             {isAiResponding && chatHistory[chatHistory.length - 1]?.role !== 'model' && (
+                <div className="flex justify-start items-end gap-2">
                      <div className="p-1.5 bg-primary/10 rounded-full mb-1">
                         <BrainCircuit className="w-6 h-6 text-primary"/>
                     </div>
-                     <div className="max-w-xs md:max-w-md p-3 rounded-2xl bg-card text-foreground rounded-bl-none shadow-sm">
-                        <Loader2 className="w-5 h-5 animate-spin"/>
+                     <div className="max-w-xs md:max-w-md p-3 rounded-2xl bg-card text-foreground rounded-bl-none shadow-sm flex items-center">
+                        <Loader2 className="w-5 h-5 animate-spin mr-2"/>
+                        <span className="text-sm text-muted-foreground">...</span>
                     </div>
                 </div>
              )}
@@ -169,9 +202,10 @@ export default function ChatPage() {
                     onChange={(e) => setChatInput(e.target.value)}
                     placeholder="रामू काका से कुछ भी पूछें..."
                     className="flex-grow h-11 text-base"
+                    disabled={isAiResponding}
                 />
-                <Button type="submit" size="icon" disabled={!chatInput.trim()} className="h-11 w-11">
-                    <Send className="w-5 h-5"/>
+                <Button type="submit" size="icon" disabled={!chatInput.trim() || isAiResponding} className="h-11 w-11">
+                    {isAiResponding ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5"/>}
                 </Button>
             </form>
         </footer>
