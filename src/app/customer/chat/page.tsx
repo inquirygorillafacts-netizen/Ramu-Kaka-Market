@@ -93,7 +93,7 @@ export default function ChatPage() {
           abortControllerRef.current.abort();
           abortControllerRef.current = null;
           setIsAiResponding(false);
-          toast({title: "Generation Stopped", description: "Ramuk Kaka has stopped writing."});
+          toast({title: "Generation Stopped", description: "Ramu Kaka has stopped writing."});
       }
   }
 
@@ -115,7 +115,7 @@ export default function ChatPage() {
         const customerContext = `Current Village: ${profile.village || 'Not provided'}. Current Cart: ${cart.map(i => i.name).join(', ') || 'Empty'}. ${lastOrderText}`;
         
         abortControllerRef.current = new AbortController();
-        const {stream, response} = runFlow(conversationalAssistantFlow, {
+        const {stream, response} = await runFlow(conversationalAssistantFlow, {
             customerName: profile.name || 'Friend',
             customerContext: customerContext,
             chatHistory: currentChatHistory,
