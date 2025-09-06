@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 import { useChatHistory } from '@/hooks/use-chat-history';
 import { conversationalAssistantFlow, ChatMessage } from '@/ai/flows/conversational-assistant';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { collection, query, where, orderBy, getDocs, limit, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, limit, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { runFlow } from '@genkit-ai/next/client';
 
 
