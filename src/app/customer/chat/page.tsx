@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef }from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -13,9 +13,10 @@ import { useRouter } from 'next/navigation';
 import { useChatHistory } from '@/hooks/use-chat-history';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { doc, getDoc } from 'firebase/firestore';
-import { conversationalAssistantFlow, ChatMessage } from '@/ai/flows/conversational-assistant';
-import { runFlow } from '@genkit-ai/next/client';
+import { ChatMessage } from '@/ai/flows/conversational-assistant';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
+const API_KEY = "AIzaSyCnapu4Y0vw2UKhwsv4-k1BZyqksWy3pUQ";
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -61,17 +62,42 @@ export default function ChatPage() {
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
     addMessage(userMessage);
     const currentChatHistory = [...chatHistory, userMessage];
+    const userPrompt = chatInput;
     setChatInput('');
     setIsAiResponding(true);
     addMessage({ role: 'model', content: '' });
 
     try {
-       const stream = await runFlow(conversationalAssistantFlow, {
-         chatHistory: currentChatHistory
-       });
+        const genAI = new GoogleGenerativeAI(API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-       for await (const chunk of stream) {
-         updateLastMessage(chunk);
+        const historyForAI = currentChatHistory
+          .filter(msg => msg.content) // Filter out empty messages
+          .map(msg => ({
+            role: msg.role,
+            parts: [{ text: msg.content }]
+          }));
+        
+        // Remove the last user message from history as it's the new prompt
+        historyForAI.pop();
+
+        const chat = model.startChat({
+            history: historyForAI,
+            generationConfig: {
+                maxOutputTokens: 2000,
+            },
+            safetySettings: [
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            ]
+        });
+
+       const result = await chat.sendMessageStream(userPrompt);
+       for await (const chunk of result.stream) {
+         const chunkText = chunk.text();
+         updateLastMessage(chunkText);
        }
 
     } catch (error: any) {
