@@ -332,15 +332,15 @@ export default function CartPage() {
             </div>
             
             {(loadingRecommendation || recommendation) && (
-             <div className="bg-primary/10 p-4 rounded-xl shadow-sm flex items-start gap-4">
+             <div className="bg-card p-4 rounded-xl shadow-sm flex items-start gap-4 border">
                  <Lightbulb className="w-6 h-6 text-primary mt-1"/>
                  {loadingRecommendation ? (
                      <div className="space-y-2 flex-grow">
-                        <div className="h-4 bg-primary/20 rounded w-3/4 animate-pulse"></div>
-                        <div className="h-4 bg-primary/20 rounded w-1/2 animate-pulse"></div>
+                        <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
+                        <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
                      </div>
                  ) : recommendation ? (
-                     <div className="text-sm text-primary-foreground/90 flex-grow">
+                     <div className="text-sm text-foreground flex-grow">
                         <p className="font-semibold text-primary">{recommendation.greeting}</p>
                         <p>{recommendation.recommendation}</p>
                      </div>
