@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -9,8 +10,15 @@
  * - ChatWithAssistant- The return type for the chat function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'zod';
+import { genkit } from 'genkit';
+import { googleAI } from '@genkit-ai/googleai';
+import { z } from 'zod';
+
+// Create a dedicated Genkit instance for the chat flow with the new API key.
+const chatAi = genkit({
+  plugins: [googleAI({ apiKey: "AIzaSyCnapu4Y0vw2UKhwsv4-k1BZyqksWy3pUQ" })],
+});
+
 
 // Defines the structure for a single message in the chat history.
 const ChatMessageSchema = z.object({
@@ -33,7 +41,7 @@ export type ChatWithAssistantInput = z.infer<
 >;
 
 
-export const conversationalAssistantFlow = ai.defineFlow(
+export const conversationalAssistantFlow = chatAi.defineFlow(
   {
     name: 'conversationalAssistantFlow',
     inputSchema: ChatWithAssistantInputSchema,
@@ -53,8 +61,8 @@ export const conversationalAssistantFlow = ai.defineFlow(
       throw new Error('No user message found.');
     }
 
-    const {stream} = await ai.generate({
-      model: 'googleai/gemini-2.0-flash',
+    const {stream} = await chatAi.generate({
+      model: 'googleai/gemini-1.5-flash',
       history: history,
       prompt: `You are "Ramu Kaka's Kitchen Expert," a super-helpful and friendly AI assistant for "Ramu Kaka Market", a local grocery store in a village in India. Your persona is like a knowledgeable family member who is an expert in the kitchen. You speak simple, conversational HINDI.
 
