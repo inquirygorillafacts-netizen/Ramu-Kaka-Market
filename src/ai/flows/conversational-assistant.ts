@@ -61,7 +61,7 @@ export const conversationalAssistantFlow = chatAi.defineFlow(
       prompt: lastUserMessage?.content[0].text || '',
     });
     
-    // The flow directly returns the text stream to the client.
-    return stream.textStream();
+    // The flow directly returns the stream object, which is an async iterator.
+    return stream;
   }
 );
