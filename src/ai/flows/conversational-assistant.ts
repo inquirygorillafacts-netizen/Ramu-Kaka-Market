@@ -3,23 +3,14 @@
 
 /**
  * @fileOverview A simplified, direct conversational AI assistant for Ramu Kaka Market.
- * This assistant uses a dedicated API key to avoid conflicts.
  *
  * - conversationalAssistantFlow - The main function to interact with the assistant.
  * - ChatMessage - The type for a single message in the chat history.
  * - ConversationalAssistantInput - The input type for the chat function.
  */
 
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/googleai';
+import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-
-// Create a dedicated Genkit instance for the chat flow with the new, dedicated API key.
-// This isolates the chat functionality from other AI tasks.
-const chatAi = genkit({
-  plugins: [googleAI({ apiKey: "AIzaSyCnapu4Y0vw2UKhwsv4-k1BZyqksWy3pUQ" })],
-});
-
 
 // Defines the structure for a single message in the chat history.
 const ChatMessageSchema = z.object({
@@ -37,7 +28,7 @@ export type ConversationalAssistantInput = z.infer<
   typeof ConversationalAssistantInputSchema
 >;
 
-export const conversationalAssistantFlow = chatAi.defineFlow(
+export const conversationalAssistantFlow = ai.defineFlow(
   {
     name: 'conversationalAssistantFlow',
     inputSchema: ConversationalAssistantInputSchema,
@@ -55,7 +46,7 @@ export const conversationalAssistantFlow = chatAi.defineFlow(
     // The user's last message is the prompt.
     const lastUserMessage = history.pop();
 
-    const {stream} = chatAi.generateStream({
+    const {stream} = await ai.generateStream({
       model: 'googleai/gemini-1.5-flash',
       history: history,
       prompt: lastUserMessage?.content[0].text || '',
