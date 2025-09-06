@@ -28,17 +28,13 @@ export function useChatHistory(storageKey: string) {
     });
   }, [storageKey]);
 
-  const updateLastMessage = useCallback((text: string, overwrite = false) => {
+  const updateLastMessage = useCallback((textChunk: string) => {
     setChatHistory(prevHistory => {
         const updatedHistory = [...prevHistory];
         const lastMessage = updatedHistory[updatedHistory.length - 1];
 
         if (lastMessage && lastMessage.role === 'model') {
-            if(overwrite) {
-                lastMessage.content = text;
-            } else {
-                lastMessage.content += text;
-            }
+            lastMessage.content += textChunk;
             try {
                 localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
             } catch (error) {
