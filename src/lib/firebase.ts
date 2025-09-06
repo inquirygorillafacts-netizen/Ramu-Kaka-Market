@@ -11,7 +11,7 @@ const firebaseConfig = {
   "projectId": "ramukakamarket",
   "appId": "1:607187252038:web:f094e13778efcd901d6b47",
   "storageBucket": "ramukakamarket.firebasestorage.app",
-  "apiKey": "AIzaSyB4asjAfqJgUtUGQ9Os6g-COTsGekkea4A",
+  "apiKey": "AIzaSyCnapu4Y0vw2UKhwsv4-k1BZyqksWy3pUQ",
   "authDomain": "ramukakamarket.firebaseapp.com",
   "measurementId": "",
   "messagingSenderId": "607187252038"
