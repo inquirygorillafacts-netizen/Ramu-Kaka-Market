@@ -27,7 +27,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
-  const { chatHistory, addMessage, updateLastMessage, clearHistory } = useChatHistory('ramukaka_chat_history');
+  const { chatHistory, addMessage, updateLastMessage, clearHistory, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   
@@ -126,8 +126,8 @@ export default function ChatPage() {
     } catch (error: any) {
         if (error.name !== 'AbortError') {
             toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
-            // Optionally remove the empty model message on error
-             setChatHistory(prev => prev.slice(0, prev.length -1));
+            // remove the empty model message and the user's message on error
+            setHistory(prev => prev.slice(0, prev.length - 2));
         }
     } finally {
         setIsAiResponding(false);
@@ -182,7 +182,7 @@ export default function ChatPage() {
                      )}
                 </div>
             ))}
-             {isAiResponding && chatHistory[chatHistory.length - 1]?.role !== 'model' && (
+             {isAiResponding && chatHistory[chatHistory.length - 1]?.role === 'model' && (
                 <div className="flex justify-start items-end gap-2">
                      <div className="p-1.5 bg-primary/10 rounded-full mb-1">
                         <BrainCircuit className="w-6 h-6 text-primary"/>
