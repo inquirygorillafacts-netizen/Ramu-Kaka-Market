@@ -37,8 +37,12 @@ export default function ChatPage() {
             setCurrentUser(user);
             // Load all user data in parallel
             const profilePromise = (async () => {
-                const savedProfile = localStorage.getItem('ramukaka_profile');
-                return savedProfile ? JSON.parse(savedProfile) : {};
+                const docRef = doc(db, 'users', user.uid);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    return docSnap.data() as UserProfile;
+                }
+                return {};
             })();
             const cartPromise = (async () => {
                 const savedCart = localStorage.getItem('ramukaka_cart');
@@ -63,9 +67,9 @@ export default function ChatPage() {
                  return null;
             })();
 
-            const [localProfile, cartData, orderData] = await Promise.all([profilePromise, cartPromise, lastOrderPromise]);
+            const [profileData, cartData, orderData] = await Promise.all([profilePromise, cartPromise, lastOrderPromise]);
             
-            setProfile(localProfile);
+            setProfile(profileData);
             setCart(cartData);
             setLastOrder(orderData);
 
@@ -111,7 +115,7 @@ export default function ChatPage() {
         const customerContext = `Current Village: ${profile.village || 'Not provided'}. Current Cart: ${cart.map(i => i.name).join(', ') || 'Empty'}. ${lastOrderText}`;
         
         abortControllerRef.current = new AbortController();
-        const stream = runFlow(conversationalAssistantFlow, {
+        const {stream, response} = runFlow(conversationalAssistantFlow, {
             customerName: profile.name || 'Friend',
             customerContext: customerContext,
             chatHistory: [...chatHistory, userMessage],
@@ -120,6 +124,8 @@ export default function ChatPage() {
         for await (const chunk of stream) {
             updateLastMessage(chunk);
         }
+        await response;
+
 
     } catch (error: any) {
         if (error.name === 'AbortError') {
