@@ -5,4 +5,3 @@ config();
 // It should be imported by the Genkit API route handler.
 import '@/ai/flows/personalized-customer-entry';
 import '@/ai/flows/get-cart-recommendations';
-import '@/ai/flows/conversational-assistant';

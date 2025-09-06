@@ -5,17 +5,22 @@ import { useState, useEffect, useRef }from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { UserProfile, CartItem, Order } from '@/lib/types';
-import { Loader2, Send, BrainCircuit, ArrowLeft, User as UserIcon, Square } from 'lucide-react';
+import { UserProfile } from '@/lib/types';
+import { Loader2, Send, BrainCircuit, ArrowLeft } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useChatHistory } from '@/hooks/use-chat-history';
-import type { ChatMessage } from '@/ai/flows/conversational-assistant';
-import { conversationalAssistantFlow } from '@/ai/flows/conversational-assistant';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { collection, query, where, orderBy, getDocs, limit, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { genkit } from 'genkit';
+import { googleAI } from '@genkit-ai/googleai';
+import type { ChatMessage } from '@/ai/flows/conversational-assistant';
 
+// Initialize a dedicated AI instance for the chat directly in the frontend
+const chatAi = genkit({
+  plugins: [googleAI({ apiKey: "AIzaSyCnapu4Y0vw2UKhwsv4-k1BZyqksWy3pUQ" })],
+});
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -25,7 +30,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
-  const { chatHistory, addMessage, updateLastMessage, clearHistory, setHistory } = useChatHistory('ramukaka_chat_history');
+  const { chatHistory, addMessage, updateLastMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -66,8 +71,17 @@ export default function ChatPage() {
     addMessage({ role: 'model', content: '' });
 
     try {
-        const stream = await conversationalAssistantFlow({
-            chatHistory: currentChatHistory,
+        const historyForApi = currentChatHistory.map(msg => ({
+            role: msg.role,
+            content: [{ text: msg.content }]
+        }));
+
+        const lastUserMessage = historyForApi.pop();
+
+        const { stream } = chatAi.generateStream({
+            model: 'googleai/gemini-1.5-flash',
+            history: historyForApi,
+            prompt: lastUserMessage?.content[0].text || '',
         });
 
         for await (const chunk of stream) {
