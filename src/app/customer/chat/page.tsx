@@ -10,10 +10,9 @@ import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useChatHistory } from '@/hooks/use-chat-history';
-import { conversationalAssistantFlow, ChatMessage } from '@/ai/flows/conversational-assistant';
+import type { ChatMessage } from '@/ai/flows/conversational-assistant';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { collection, query, where, orderBy, getDocs, limit, Timestamp, doc, getDoc } from 'firebase/firestore';
-import { runFlow } from '@genkit-ai/next/client';
 
 
 export default function ChatPage() {
@@ -28,8 +27,7 @@ export default function ChatPage() {
   const { toast } = useToast();
   const { chatHistory, addMessage, updateLastMessage, clearHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
+  
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
@@ -88,57 +86,20 @@ export default function ChatPage() {
 
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
-  const handleStopGeneration = () => {
-      if(abortControllerRef.current) {
-          abortControllerRef.current.abort();
-          abortControllerRef.current = null;
-          setIsAiResponding(false);
-          toast({title: "Generation Stopped", description: "Ramu Kaka has stopped writing."});
-      }
-  }
-
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim() || isAiResponding) return;
+    if (!chatInput.trim()) return;
 
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
     addMessage(userMessage);
-    const currentChatHistory = [...chatHistory, userMessage];
     setChatInput('');
-    setIsAiResponding(true);
 
-    // Add empty model message for streaming
-    addMessage({ role: 'model', content: '' });
-
-    try {
-        const lastOrderText = lastOrder ? `Last order was for ${lastOrder.items.map(i => i.name).join(', ')} on ${lastOrder.createdAt.toLocaleDateString()}.` : 'No recent orders.';
-        const customerContext = `Current Village: ${profile.village || 'Not provided'}. Current Cart: ${cart.map(i => i.name).join(', ') || 'Empty'}. ${lastOrderText}`;
-        
-        abortControllerRef.current = new AbortController();
-        const {stream, response} = await runFlow(conversationalAssistantFlow, {
-            customerName: profile.name || 'Friend',
-            customerContext: customerContext,
-            chatHistory: currentChatHistory,
-        }, { signal: abortControllerRef.current });
-
-        for await (const chunk of stream) {
-            updateLastMessage(chunk);
-        }
-        await response;
-
-
-    } catch (error: any) {
-        if (error.name === 'AbortError') {
-            console.log("Flow execution was aborted.");
-        } else {
-            console.error("Chat AI error:", error);
-            const errorMessage = 'माफ़ कीजिए, मुझे अभी जवाब देने में कुछ परेशानी हो रही है।';
-            updateLastMessage(errorMessage);
-        }
-    } finally {
-        setIsAiResponding(false);
-        abortControllerRef.current = null;
-    }
+    // AI functionality is removed. The message is just added to the local history.
+    // We can add a placeholder response if needed.
+    // For example:
+    // setTimeout(() => {
+    //   addMessage({ role: 'model', content: "AI is currently offline." });
+    // }, 1000);
   }
 
   if (loading) {
@@ -189,7 +150,7 @@ export default function ChatPage() {
                      )}
                 </div>
             ))}
-             {isAiResponding && chatHistory[chatHistory.length - 1]?.role === 'model' && chatHistory[chatHistory.length - 1]?.content === '' && (
+             {isAiResponding && (
                 <div className="flex justify-start">
                      <div className="p-1.5 bg-primary/10 rounded-full mb-1">
                         <BrainCircuit className="w-6 h-6 text-primary"/>
@@ -207,18 +168,11 @@ export default function ChatPage() {
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     placeholder="रामू काका से कुछ भी पूछें..."
-                    disabled={isAiResponding}
                     className="flex-grow h-11 text-base"
                 />
-                {isAiResponding ? (
-                     <Button type="button" size="icon" variant="destructive" onClick={handleStopGeneration} className="h-11 w-11">
-                        <Square className="w-5 h-5"/>
-                     </Button>
-                ) : (
-                    <Button type="submit" size="icon" disabled={!chatInput.trim()} className="h-11 w-11">
-                        <Send className="w-5 h-5"/>
-                    </Button>
-                )}
+                <Button type="submit" size="icon" disabled={!chatInput.trim()} className="h-11 w-11">
+                    <Send className="w-5 h-5"/>
+                </Button>
             </form>
         </footer>
     </div>
