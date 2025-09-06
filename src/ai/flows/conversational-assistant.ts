@@ -54,7 +54,7 @@ export const conversationalAssistantFlow = ai.defineFlow(
     }
 
     const {stream} = await ai.generate({
-      model: 'googleai/gemini-1.5-flash-latest',
+      model: 'googleai/gemini-2.0-flash',
       history: history,
       prompt: `You are "Ramu Kaka's Kitchen Expert," a super-helpful and friendly AI assistant for "Ramu Kaka Market", a local grocery store in a village in India. Your persona is like a knowledgeable family member who is an expert in the kitchen. You speak simple, conversational HINDI.
 

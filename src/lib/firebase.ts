@@ -8,7 +8,7 @@ import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyB4asjAfqJgUtUGQ9Os6g-COTsGekkea4A",
+  apiKey: "AIzaSyA8k4negis5JJLaH-8Co76-xVF8zvDiYSU",
   authDomain: "ramukakamarket.firebaseapp.com",
   projectId: "ramukakamarket",
   storageBucket: "ramukakamarket.firebasestorage.app",
