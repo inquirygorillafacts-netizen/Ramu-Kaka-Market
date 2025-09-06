@@ -121,9 +121,10 @@ export default function ChatPage() {
         });
 
        const result = await chat.sendMessageStream(userPrompt);
+       let streamedText = '';
        for await (const chunk of result.stream) {
-         const chunkText = chunk.text();
-         updateLastMessage(chunkText);
+         streamedText += chunk.text();
+         updateLastMessage(streamedText, true);
        }
 
     } catch (error: any) {
@@ -184,7 +185,7 @@ export default function ChatPage() {
                      )}
                 </div>
             ))}
-             {isAiResponding && chatHistory[chatHistory.length - 1]?.role === 'model' && (
+             {isAiResponding && chatHistory[chatHistory.length - 1]?.role === 'model' && !chatHistory[chatHistory.length - 1]?.content && (
                 <div className="flex justify-start items-end gap-2">
                      <div className="p-1.5 bg-primary/10 rounded-full mb-1">
                         <BrainCircuit className="w-6 h-6 text-primary"/>
@@ -214,5 +215,3 @@ export default function ChatPage() {
     </div>
   )
 }
-
-    
