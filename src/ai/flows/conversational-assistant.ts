@@ -72,7 +72,7 @@ export const conversationalAssistantFlow = ai.defineFlow(
   - Name: ${input.customerName}
   - Context: ${input.customerContext}
 
-  Start the conversation based on the user's latest question.
+  Start the conversation based on the user's latest question. Now, answer this: ${lastUserMessage.content[0].text}
   `,
       stream: true,
     });

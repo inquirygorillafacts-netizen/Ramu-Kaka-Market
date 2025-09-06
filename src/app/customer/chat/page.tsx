@@ -103,6 +103,7 @@ export default function ChatPage() {
 
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
     addMessage(userMessage);
+    const currentChatHistory = [...chatHistory, userMessage];
     setChatInput('');
     setIsAiResponding(true);
 
@@ -117,7 +118,7 @@ export default function ChatPage() {
         const {stream, response} = runFlow(conversationalAssistantFlow, {
             customerName: profile.name || 'Friend',
             customerContext: customerContext,
-            chatHistory: [...chatHistory, userMessage],
+            chatHistory: currentChatHistory,
         }, { signal: abortControllerRef.current });
 
         for await (const chunk of stream) {
