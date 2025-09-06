@@ -49,17 +49,19 @@ export const conversationalAssistantFlow = chatAi.defineFlow(
     stream: true,
   },
   async (input) => {
-    const history = input.chatHistory.map(msg => ({
-      role: msg.role,
-      content: [{ text: msg.content }]
-    }));
     
     // The last message is the new question from the user
-    const lastUserMessage = history.pop(); 
+    const lastUserMessage = input.chatHistory.pop(); 
     if (!lastUserMessage || lastUserMessage.role !== 'user') {
       // This should ideally not happen with the current UI flow
       throw new Error('No user message found.');
     }
+    
+    // The rest is the history
+    const history = input.chatHistory.map(msg => ({
+      role: msg.role,
+      content: [{ text: msg.content }]
+    }));
 
     const {stream} = await chatAi.generate({
       model: 'googleai/gemini-1.5-flash',
@@ -80,7 +82,7 @@ export const conversationalAssistantFlow = chatAi.defineFlow(
   - Name: ${input.customerName}
   - Context: ${input.customerContext}
 
-  Start the conversation based on the user's latest question. Now, answer this: ${lastUserMessage.content[0].text}
+  Now, answer this: ${lastUserMessage.content}
   `,
       stream: true,
     });
@@ -88,3 +90,4 @@ export const conversationalAssistantFlow = chatAi.defineFlow(
     return stream.textStream();
   }
 );
+
