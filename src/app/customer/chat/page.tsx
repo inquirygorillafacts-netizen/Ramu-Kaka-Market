@@ -26,9 +26,12 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
-  const { chatHistory, addMessage, updateLastMessage, setHistory } = useChatHistory('ramukaka_chat_history');
+  const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
+  // New state to handle the in-progress streaming response separately
+  const [streamingResponse, setStreamingResponse] = useState('');
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
@@ -51,7 +54,7 @@ export default function ChatPage() {
     if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatHistory, isAiResponding]);
+  }, [chatHistory, streamingResponse]);
 
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
@@ -61,24 +64,24 @@ export default function ChatPage() {
 
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
     addMessage(userMessage);
-    const currentChatHistory = [...chatHistory, userMessage];
+    
     const userPrompt = chatInput;
     setChatInput('');
     setIsAiResponding(true);
-    addMessage({ role: 'model', content: '' });
+    setStreamingResponse(''); // Reset streaming response state
 
     try {
         const genAI = new GoogleGenerativeAI(API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        const historyForAI: Content[] = currentChatHistory
+        const historyForAI: Content[] = [...chatHistory, userMessage]
           .filter(msg => msg.content) // Filter out empty messages
           .map(msg => ({
-            role: msg.role,
+            role: msg.role === 'model' ? 'model' : 'user', // Ensure correct role mapping
             parts: [{ text: msg.content }]
           }));
         
-        // Remove the last user message from history as it's the new prompt
+        // The last message is the new prompt, so it should not be in the history
         historyForAI.pop();
 
         const systemInstruction = {
@@ -132,15 +135,22 @@ export default function ChatPage() {
         });
 
        const result = await chat.sendMessageStream(userPrompt);
+       let finalResponse = "";
        for await (const chunk of result.stream) {
-         updateLastMessage(chunk.text());
+         const chunkText = chunk.text();
+         finalResponse += chunkText;
+         setStreamingResponse(finalResponse);
        }
+       
+       // Once streaming is complete, add the final message to the history
+       addMessage({ role: 'model', content: finalResponse });
+       setStreamingResponse(''); // Clear the streaming state
 
     } catch (error: any) {
         console.error("AI Error:", error);
         toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
-        // remove the empty model message and the user's message on error
-        setHistory(prev => prev.slice(0, prev.length - 2));
+        // On error, remove the user's last message to allow them to retry.
+        setHistory(prev => prev.slice(0, prev.length - 1));
     } finally {
         setIsAiResponding(false);
     }
@@ -194,14 +204,17 @@ export default function ChatPage() {
                      )}
                 </div>
             ))}
-             {isAiResponding && chatHistory[chatHistory.length - 1]?.role === 'model' && !chatHistory[chatHistory.length - 1]?.content && (
+             {isAiResponding && (
                 <div className="flex justify-start items-end gap-2">
                      <div className="p-1.5 bg-primary/10 rounded-full mb-1">
                         <BrainCircuit className="w-6 h-6 text-primary"/>
                     </div>
                      <div className="max-w-xs md:max-w-md p-3 rounded-2xl bg-card text-foreground rounded-bl-none shadow-sm flex items-center">
-                        <Loader2 className="w-5 h-5 animate-spin mr-2"/>
-                        <span className="text-sm text-muted-foreground">...</span>
+                        {streamingResponse ? (
+                           <p className="text-sm whitespace-pre-wrap">{streamingResponse}</p>
+                        ) : (
+                           <Loader2 className="w-5 h-5 animate-spin"/>
+                        )}
                     </div>
                 </div>
              )}
