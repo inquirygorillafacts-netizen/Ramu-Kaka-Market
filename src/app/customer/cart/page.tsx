@@ -1,11 +1,11 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Product, CartItem, UserProfile, Order } from '@/lib/types';
-import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon, Gift, CreditCard, Wallet, Globe, Home, Hash, Lightbulb } from 'lucide-react';
+import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon, Gift, CreditCard, Wallet, Globe, Home, Hash, Lightbulb, Send, MessageSquare } from 'lucide-react';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -26,9 +26,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { getCartRecommendations, GetCartRecommendationsOutput } from '@/ai/flows/get-cart-recommendations';
+import { chatWithAssistant, ChatMessage } from '@/ai/flows/conversational-assistant';
+import { useChatHistory } from '@/hooks/use-chat-history';
 
 
 declare const Razorpay: any;
+
+type AssistantMode = 'recommendation' | 'chat';
 
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -46,6 +50,19 @@ export default function CartPage() {
   const { toast } = useToast();
   const router = useRouter();
 
+  // State for the new conversational AI assistant
+  const [assistantMode, setAssistantMode] = useState<AssistantMode>('recommendation');
+  const { chatHistory, addMessage, clearHistory } = useChatHistory('ramukaka_chat_history');
+  const [chatInput, setChatInput] = useState('');
+  const [isAiResponding, setIsAiResponding] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatHistory]);
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -61,7 +78,11 @@ export default function CartPage() {
   useEffect(() => {
     const loadData = async () => {
         const savedCart = localStorage.getItem('ramukaka_cart');
-        if (savedCart) setCart(JSON.parse(savedCart));
+        const parsedCart = savedCart ? JSON.parse(savedCart) : [];
+        setCart(parsedCart);
+        
+        // Determine initial assistant mode
+        setAssistantMode(parsedCart.length > 0 ? 'recommendation' : 'chat');
 
         const savedProfile = localStorage.getItem('ramukaka_profile');
         const localProfile: Partial<UserProfile> = savedProfile ? JSON.parse(savedProfile) : {};
@@ -104,6 +125,7 @@ export default function CartPage() {
 
   useEffect(() => {
     if (cart.length > 0 && profile.name) {
+        setAssistantMode('recommendation');
         setLoadingRecommendation(true);
         const cartItemNames = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
         getCartRecommendations({customerName: profile.name, cartItems: cartItemNames})
@@ -111,9 +133,10 @@ export default function CartPage() {
             .catch(err => console.error("AI recommendation error:", err))
             .finally(() => setLoadingRecommendation(false));
     } else {
+        setAssistantMode('chat');
         setRecommendation(null);
     }
-  }, [cart, profile.name]);
+  }, [cart.length, profile.name]);
 
 
   const updateCart = (newCart: CartItem[]) => {
@@ -156,7 +179,6 @@ export default function CartPage() {
           return;
       }
       
-      // Always open the checkout dialog to confirm/enter details
       setIsCheckoutDialogOpen(true);
   };
 
@@ -166,19 +188,15 @@ export default function CartPage() {
         return;
     }
     
-    // Close the details form
     setIsCheckoutDialogOpen(false); 
 
-    // Now proceed based on the chosen payment method
     if (orderData.paymentMethod === 'Online') {
         await initiateOnlinePayment();
-    } else { // COD
-        // For COD, show the promotional pop-up if it hasn't been shown.
+    } else { 
         if (!hasShownPromo) {
           setIsPromoDialogOpen(true);
-          setHasShownPromo(true); // Mark as shown for this attempt
+          setHasShownPromo(true);
         } else {
-          // If promo was already shown (e.g., user closed it), go to final confirm
           setIsCodConfirmOpen(true);
         }
     }
@@ -191,7 +209,7 @@ export default function CartPage() {
         const response = await fetch('/api/razorpay', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: getCartTotal() * 100 }) // amount in paisa
+            body: JSON.stringify({ amount: getCartTotal() * 100 })
         });
         const { order } = await response.json();
         
@@ -261,7 +279,8 @@ export default function CartPage() {
             title: 'Order Placed!',
             description: 'Your order has been successfully placed.',
         });
-        updateCart([]); // Clear the cart
+        updateCart([]); 
+        clearHistory();
         setIsCheckoutDialogOpen(false);
         setIsPromoDialogOpen(false);
         setIsCodConfirmOpen(false);
@@ -278,6 +297,34 @@ export default function CartPage() {
     }
   }
 
+  const handleChatSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() || isAiResponding) return;
+
+    const userMessage: ChatMessage = { role: 'user', content: chatInput };
+    addMessage(userMessage);
+    setChatInput('');
+    setIsAiResponding(true);
+
+    try {
+        const customerContext = `Village: ${profile.village || 'N/A'}. Current Cart: ${cart.map(i => i.name).join(', ') || 'Empty'}`;
+        const response = await chatWithAssistant({
+            customerName: profile.name || 'Friend',
+            customerContext: customerContext,
+            chatHistory: [...chatHistory, userMessage],
+            question: chatInput,
+        });
+        const aiMessage: ChatMessage = { role: 'model', content: response.answer };
+        addMessage(aiMessage);
+    } catch (error) {
+        console.error("Chat AI error:", error);
+        toast({ variant: 'destructive', title: 'AI Error', description: 'Sorry, I am having trouble responding right now.'});
+        addMessage({role: 'model', content: 'माफ़ कीजिए, मुझे अभी जवाब देने में कुछ परेशानी हो रही है।'});
+    } finally {
+        setIsAiResponding(false);
+    }
+  }
+
 
   if (loading) {
     return (
@@ -286,6 +333,71 @@ export default function CartPage() {
       </div>
     );
   }
+
+  const renderRecommendationAssistant = () => (
+    <>
+       {(loadingRecommendation || recommendation) && (
+             <div className="bg-card p-4 rounded-xl shadow-sm flex items-start gap-4 border">
+                 <Lightbulb className="w-6 h-6 text-primary mt-1"/>
+                 {loadingRecommendation ? (
+                     <div className="space-y-2 flex-grow">
+                        <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
+                        <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
+                     </div>
+                 ) : recommendation ? (
+                     <div className="text-sm text-foreground flex-grow">
+                        <p className="font-semibold text-primary">{recommendation.greeting}</p>
+                        <p>{recommendation.recommendation}</p>
+                     </div>
+                 ) : null}
+             </div>
+        )}
+        <Button variant="outline" className="w-full" onClick={() => setAssistantMode('chat')}>
+            <MessageSquare className="mr-2 h-4 w-4" />
+            कुछ भी पूछें (Ask Anything)
+        </Button>
+    </>
+  );
+
+  const renderChatAssistant = () => (
+     <div className="bg-card p-4 rounded-xl shadow-sm space-y-4">
+        <div ref={chatContainerRef} className="h-64 overflow-y-auto space-y-4 pr-2">
+            {chatHistory.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
+                   <MessageSquare className="w-12 h-12 mb-2" />
+                   <p className="font-semibold">नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?</p>
+                   <p className="text-xs">पूछें, "प्रोटीन के लिए कौनसी सब्जी अच्छी है?"</p>
+                </div>
+            )}
+            {chatHistory.map((msg, index) => (
+                <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-xs md:max-w-md p-3 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-muted text-foreground rounded-bl-none'}`}>
+                       <p className="text-sm">{msg.content}</p>
+                    </div>
+                </div>
+            ))}
+             {isAiResponding && (
+                <div className="flex justify-start">
+                     <div className="max-w-xs md:max-w-md p-3 rounded-2xl bg-muted text-foreground rounded-bl-none">
+                        <Loader2 className="w-5 h-5 animate-spin"/>
+                    </div>
+                </div>
+             )}
+        </div>
+        <form onSubmit={handleChatSubmit} className="flex items-center gap-2">
+            <Input 
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="यहाँ अपना सवाल लिखें..."
+                disabled={isAiResponding}
+                className="flex-grow"
+            />
+            <Button type="submit" size="icon" disabled={!chatInput.trim() || isAiResponding}>
+                <Send className="w-4 h-4"/>
+            </Button>
+        </form>
+     </div>
+  );
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -299,10 +411,8 @@ export default function CartPage() {
       </header>
 
       {cart.length === 0 ? (
-        <div className="text-center py-20 flex flex-col items-center animate-fade-in-up">
-            <ShoppingBasket className="w-24 h-24 text-muted-foreground/30 mb-4"/>
-            <h2 className="text-xl font-semibold">Your Tokri is Empty</h2>
-            <p className="text-muted-foreground mt-2">Looks like you haven't added anything yet.</p>
+        <div className="text-center py-8 flex flex-col items-center animate-fade-in-up">
+            {renderChatAssistant()}
             <Button onClick={() => router.push('/customer')} className="mt-6">Start Shopping</Button>
         </div>
       ) : (
@@ -331,23 +441,8 @@ export default function CartPage() {
                 ))}
             </div>
             
-            {(loadingRecommendation || recommendation) && (
-             <div className="bg-card p-4 rounded-xl shadow-sm flex items-start gap-4 border">
-                 <Lightbulb className="w-6 h-6 text-primary mt-1"/>
-                 {loadingRecommendation ? (
-                     <div className="space-y-2 flex-grow">
-                        <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
-                        <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
-                     </div>
-                 ) : recommendation ? (
-                     <div className="text-sm text-foreground flex-grow">
-                        <p className="font-semibold text-primary">{recommendation.greeting}</p>
-                        <p>{recommendation.recommendation}</p>
-                     </div>
-                 ) : null}
-             </div>
-            )}
-
+            {assistantMode === 'recommendation' ? renderRecommendationAssistant() : renderChatAssistant()}
+            
             <div className="bg-card p-4 rounded-xl shadow-sm space-y-3">
                 <h3 className="text-lg font-semibold">Price Details</h3>
                 <div className="flex justify-between">
@@ -530,5 +625,3 @@ export default function CartPage() {
   );
 
 }
-
-    
