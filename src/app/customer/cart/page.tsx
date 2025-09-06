@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Product, CartItem, UserProfile, Order } from '@/lib/types';
-import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon, Gift, CreditCard, Wallet, Globe, Home, Hash } from 'lucide-react';
+import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon, Gift, CreditCard, Wallet, Globe, Home, Hash, Lightbulb } from 'lucide-react';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -25,6 +25,7 @@ import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { getCartRecommendations, GetCartRecommendationsOutput } from '@/ai/flows/get-cart-recommendations';
 
 
 declare const Razorpay: any;
@@ -40,6 +41,8 @@ export default function CartPage() {
   const [hasShownPromo, setHasShownPromo] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isCodConfirmOpen, setIsCodConfirmOpen] = useState(false);
+  const [recommendation, setRecommendation] = useState<GetCartRecommendationsOutput | null>(null);
+  const [loadingRecommendation, setLoadingRecommendation] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -98,6 +101,20 @@ export default function CartPage() {
     }
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (cart.length > 0 && profile.name) {
+        setLoadingRecommendation(true);
+        const cartItemNames = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
+        getCartRecommendations({customerName: profile.name, cartItems: cartItemNames})
+            .then(rec => setRecommendation(rec))
+            .catch(err => console.error("AI recommendation error:", err))
+            .finally(() => setLoadingRecommendation(false));
+    } else {
+        setRecommendation(null);
+    }
+  }, [cart, profile.name]);
+
 
   const updateCart = (newCart: CartItem[]) => {
     setCart(newCart);
@@ -313,6 +330,23 @@ export default function CartPage() {
                     </div>
                 ))}
             </div>
+            
+            {(loadingRecommendation || recommendation) && (
+             <div className="bg-primary/10 p-4 rounded-xl shadow-sm flex items-start gap-4">
+                 <Lightbulb className="w-6 h-6 text-primary mt-1"/>
+                 {loadingRecommendation ? (
+                     <div className="space-y-2 flex-grow">
+                        <div className="h-4 bg-primary/20 rounded w-3/4 animate-pulse"></div>
+                        <div className="h-4 bg-primary/20 rounded w-1/2 animate-pulse"></div>
+                     </div>
+                 ) : recommendation ? (
+                     <div className="text-sm text-primary-foreground/90 flex-grow">
+                        <p className="font-semibold text-primary">{recommendation.greeting}</p>
+                        <p>{recommendation.recommendation}</p>
+                     </div>
+                 ) : null}
+             </div>
+            )}
 
             <div className="bg-card p-4 rounded-xl shadow-sm space-y-3">
                 <h3 className="text-lg font-semibold">Price Details</h3>

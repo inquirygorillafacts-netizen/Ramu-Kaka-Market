@@ -203,11 +203,7 @@ export default function ProductDetailPage() {
                     </div>
                      <div className="flex items-center gap-3 text-sm">
                         <Repeat className="w-5 h-5 text-primary"/>
-                        <span className="font-medium">आसान वापसी नीति</span>
-                    </div>
-                     <div className="flex items-center gap-3 text-sm">
-                        <Image src="/rewards.svg" alt="Rewards" width={20} height={20} className="text-primary"/>
-                        <span className="font-medium">रोमांचक ऑफ़र और पुरस्कार</span>
+                        <span className="font-medium">पसंद न आए तो तुरंत वापस!</span>
                     </div>
                 </div>
 
