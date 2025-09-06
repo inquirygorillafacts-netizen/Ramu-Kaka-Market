@@ -11,6 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import {generate} from 'genkit/generate';
 
 // Defines the structure for a single message in the chat history.
 const ChatMessageSchema = z.object({
@@ -27,32 +28,37 @@ const ChatWithAssistantInputSchema = z.object({
   chatHistory: z
     .array(ChatMessageSchema)
     .describe('The history of the conversation so far.'),
-  question: z
-    .string()
-    .describe('The latest question or message from the customer.'),
 });
 export type ChatWithAssistantInput = z.infer<
   typeof ChatWithAssistantInputSchema
 >;
 
-const ChatWithAssistantOutputSchema = z.object({
-  answer: z.string().describe('The AI\'s response in simple, conversational Hindi.'),
-});
-export type ChatWithAssistantOutput = z.infer<
-  typeof ChatWithAssistantOutputSchema
->;
 
-export async function chatWithAssistant(
-  input: ChatWithAssistantInput
-): Promise<ChatWithAssistantOutput> {
-  return conversationalAssistantFlow(input);
-}
+export const conversationalAssistantFlow = ai.defineFlow(
+  {
+    name: 'conversationalAssistantFlow',
+    inputSchema: ChatWithAssistantInputSchema,
+    outputSchema: z.string(),
+    stream: true,
+  },
+  async (input, streamingCallback) => {
+    const model = ai.getModel('googleai/gemini-1.5-flash-latest');
 
-const prompt = ai.definePrompt({
-  name: 'conversationalAssistantPrompt',
-  input: {schema: ChatWithAssistantInputSchema},
-  output: {schema: ChatWithAssistantOutputSchema},
-  prompt: `You are "Ramu Kaka's Kitchen Expert," a super-helpful and friendly AI assistant for "Ramu Kaka Market", a local grocery store in a village in India. Your persona is like a knowledgeable family member who is an expert in the kitchen. You speak simple, conversational HINDI.
+    const history = input.chatHistory.map(msg => ({
+      role: msg.role,
+      content: [{ text: msg.content }]
+    }));
+    
+    // The last message is the new question from the user
+    const lastUserMessage = history.pop(); 
+    if (!lastUserMessage || lastUserMessage.role !== 'user') {
+      return { stream: null, response: Promise.resolve('No user message found.') };
+    }
+
+    const {stream, response} = generate({
+      model,
+      history: history,
+      prompt: `You are "Ramu Kaka's Kitchen Expert," a super-helpful and friendly AI assistant for "Ramu Kaka Market", a local grocery store in a village in India. Your persona is like a knowledgeable family member who is an expert in the kitchen. You speak simple, conversational HINDI.
 
   Your main goal is to help users with their shopping, answer their questions, and make them feel welcome and understood. You have access to some information about the user and the conversation history.
 
@@ -65,29 +71,20 @@ const prompt = ai.definePrompt({
   6.  **Encourage Shopping:** Gently guide the user towards products available in the store. You can suggest adding items to their cart.
 
   **Customer Information:**
-  - Name: {{{customerName}}}
-  - Context: {{{customerContext}}}
+  - Name: ${input.customerName}
+  - Context: ${input.customerContext}
 
-  **Conversation History:**
-  {{#each chatHistory}}
-    - **{{role}}**: {{content}}
-  {{/each}}
-
-  **New Question from Customer:**
-  - **user**: {{{question}}}
-
-  Based on all this information, provide a helpful and friendly response in HINDI.
+  Start the conversation based on the user's latest question.
   `,
-});
+    });
 
-const conversationalAssistantFlow = ai.defineFlow(
-  {
-    name: 'conversationalAssistantFlow',
-    inputSchema: ChatWithAssistantInputSchema,
-    outputSchema: ChatWithAssistantOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+    if (streamingCallback) {
+      for await (const chunk of stream) {
+        streamingCallback(chunk.text);
+      }
+    }
+
+    const result = await response;
+    return result.text;
   }
 );

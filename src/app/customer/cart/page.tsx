@@ -1,11 +1,11 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Product, CartItem, UserProfile, Order } from '@/lib/types';
-import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon, Gift, CreditCard, Wallet, Globe, Home, Hash, Lightbulb, Send, MessageSquare } from 'lucide-react';
+import { Product, CartItem, UserProfile } from '@/lib/types';
+import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon, Gift, CreditCard, Wallet, Globe, Home, Hash, Lightbulb, MessageSquare } from 'lucide-react';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -15,9 +15,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { addDoc, collection, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -26,13 +25,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { getCartRecommendations, GetCartRecommendationsOutput } from '@/ai/flows/get-cart-recommendations';
-import { chatWithAssistant, ChatMessage } from '@/ai/flows/conversational-assistant';
-import { useChatHistory } from '@/hooks/use-chat-history';
-
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import Link from 'next/link';
 
 declare const Razorpay: any;
-
-type AssistantMode = 'recommendation' | 'chat';
 
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -49,20 +45,6 @@ export default function CartPage() {
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-
-  // State for the new conversational AI assistant
-  const [assistantMode, setAssistantMode] = useState<AssistantMode>('recommendation');
-  const { chatHistory, addMessage, clearHistory } = useChatHistory('ramukaka_chat_history');
-  const [chatInput, setChatInput] = useState('');
-  const [isAiResponding, setIsAiResponding] = useState(false);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (chatContainerRef.current) {
-        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
-  }, [chatHistory]);
-
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -81,9 +63,6 @@ export default function CartPage() {
         const parsedCart = savedCart ? JSON.parse(savedCart) : [];
         setCart(parsedCart);
         
-        // Determine initial assistant mode
-        setAssistantMode(parsedCart.length > 0 ? 'recommendation' : 'chat');
-
         const savedProfile = localStorage.getItem('ramukaka_profile');
         const localProfile: Partial<UserProfile> = savedProfile ? JSON.parse(savedProfile) : {};
 
@@ -125,7 +104,6 @@ export default function CartPage() {
 
   useEffect(() => {
     if (cart.length > 0 && profile.name) {
-        setAssistantMode('recommendation');
         setLoadingRecommendation(true);
         const cartItemNames = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
         getCartRecommendations({customerName: profile.name, cartItems: cartItemNames})
@@ -133,7 +111,6 @@ export default function CartPage() {
             .catch(err => console.error("AI recommendation error:", err))
             .finally(() => setLoadingRecommendation(false));
     } else {
-        setAssistantMode('chat');
         setRecommendation(null);
     }
   }, [cart.length, profile.name]);
@@ -280,7 +257,7 @@ export default function CartPage() {
             description: 'Your order has been successfully placed.',
         });
         updateCart([]); 
-        clearHistory();
+        localStorage.removeItem('ramukaka_chat_history'); // Clear chat on successful order
         setIsCheckoutDialogOpen(false);
         setIsPromoDialogOpen(false);
         setIsCodConfirmOpen(false);
@@ -297,35 +274,6 @@ export default function CartPage() {
     }
   }
 
-  const handleChatSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim() || isAiResponding) return;
-
-    const userMessage: ChatMessage = { role: 'user', content: chatInput };
-    addMessage(userMessage);
-    setChatInput('');
-    setIsAiResponding(true);
-
-    try {
-        const customerContext = `Village: ${profile.village || 'N/A'}. Current Cart: ${cart.map(i => i.name).join(', ') || 'Empty'}`;
-        const response = await chatWithAssistant({
-            customerName: profile.name || 'Friend',
-            customerContext: customerContext,
-            chatHistory: [...chatHistory, userMessage],
-            question: chatInput,
-        });
-        const aiMessage: ChatMessage = { role: 'model', content: response.answer };
-        addMessage(aiMessage);
-    } catch (error) {
-        console.error("Chat AI error:", error);
-        toast({ variant: 'destructive', title: 'AI Error', description: 'Sorry, I am having trouble responding right now.'});
-        addMessage({role: 'model', content: 'माफ़ कीजिए, मुझे अभी जवाब देने में कुछ परेशानी हो रही है।'});
-    } finally {
-        setIsAiResponding(false);
-    }
-  }
-
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -333,71 +281,6 @@ export default function CartPage() {
       </div>
     );
   }
-
-  const renderRecommendationAssistant = () => (
-    <>
-       {(loadingRecommendation || recommendation) && (
-             <div className="bg-card p-4 rounded-xl shadow-sm flex items-start gap-4 border">
-                 <Lightbulb className="w-6 h-6 text-primary mt-1"/>
-                 {loadingRecommendation ? (
-                     <div className="space-y-2 flex-grow">
-                        <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
-                        <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
-                     </div>
-                 ) : recommendation ? (
-                     <div className="text-sm text-foreground flex-grow">
-                        <p className="font-semibold text-primary">{recommendation.greeting}</p>
-                        <p>{recommendation.recommendation}</p>
-                     </div>
-                 ) : null}
-             </div>
-        )}
-        <Button variant="outline" className="w-full" onClick={() => setAssistantMode('chat')}>
-            <MessageSquare className="mr-2 h-4 w-4" />
-            कुछ भी पूछें (Ask Anything)
-        </Button>
-    </>
-  );
-
-  const renderChatAssistant = () => (
-     <div className="bg-card p-4 rounded-xl shadow-sm space-y-4">
-        <div ref={chatContainerRef} className="h-64 overflow-y-auto space-y-4 pr-2">
-            {chatHistory.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
-                   <MessageSquare className="w-12 h-12 mb-2" />
-                   <p className="font-semibold">नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?</p>
-                   <p className="text-xs">पूछें, "प्रोटीन के लिए कौनसी सब्जी अच्छी है?"</p>
-                </div>
-            )}
-            {chatHistory.map((msg, index) => (
-                <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs md:max-w-md p-3 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-muted text-foreground rounded-bl-none'}`}>
-                       <p className="text-sm">{msg.content}</p>
-                    </div>
-                </div>
-            ))}
-             {isAiResponding && (
-                <div className="flex justify-start">
-                     <div className="max-w-xs md:max-w-md p-3 rounded-2xl bg-muted text-foreground rounded-bl-none">
-                        <Loader2 className="w-5 h-5 animate-spin"/>
-                    </div>
-                </div>
-             )}
-        </div>
-        <form onSubmit={handleChatSubmit} className="flex items-center gap-2">
-            <Input 
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="यहाँ अपना सवाल लिखें..."
-                disabled={isAiResponding}
-                className="flex-grow"
-            />
-            <Button type="submit" size="icon" disabled={!chatInput.trim() || isAiResponding}>
-                <Send className="w-4 h-4"/>
-            </Button>
-        </form>
-     </div>
-  );
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -412,8 +295,18 @@ export default function CartPage() {
 
       {cart.length === 0 ? (
         <div className="text-center py-8 flex flex-col items-center animate-fade-in-up">
-            {renderChatAssistant()}
-            <Button onClick={() => router.push('/customer')} className="mt-6">Start Shopping</Button>
+            <Card className="w-full max-w-sm text-center p-8 shadow-lg border-primary/20">
+                <CardHeader>
+                    <MessageSquare className="w-16 h-16 mx-auto text-primary/80"/>
+                </CardHeader>
+                <CardContent>
+                    <h2 className="text-xl font-semibold mb-2">आपकी टोकरी खाली है</h2>
+                    <p className="text-muted-foreground mb-6">कुछ चाहिए तो रामू काका से पूछो!</p>
+                    <Button asChild size="lg" className="w-full">
+                        <Link href="/customer/chat">रामू काका से पूछें</Link>
+                    </Button>
+                </CardContent>
+            </Card>
         </div>
       ) : (
         <div className="space-y-4 animate-fade-in-up">
@@ -441,7 +334,28 @@ export default function CartPage() {
                 ))}
             </div>
             
-            {assistantMode === 'recommendation' ? renderRecommendationAssistant() : renderChatAssistant()}
+            {(loadingRecommendation || recommendation) && (
+                 <div className="bg-card p-4 rounded-xl shadow-sm flex items-start gap-4 border">
+                     <Lightbulb className="w-6 h-6 text-primary mt-1"/>
+                     {loadingRecommendation ? (
+                         <div className="space-y-2 flex-grow">
+                            <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
+                            <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
+                         </div>
+                     ) : recommendation ? (
+                         <div className="text-sm text-foreground flex-grow">
+                            <p className="font-semibold text-primary">{recommendation.greeting}</p>
+                            <p>{recommendation.recommendation}</p>
+                         </div>
+                     ) : null}
+                 </div>
+            )}
+            <Button variant="outline" className="w-full" asChild>
+                <Link href="/customer/chat">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    रामू काका से कुछ भी पूछें
+                </Link>
+            </Button>
             
             <div className="bg-card p-4 rounded-xl shadow-sm space-y-3">
                 <h3 className="text-lg font-semibold">Price Details</h3>
@@ -568,12 +482,10 @@ export default function CartPage() {
             <AlertDialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
               <AlertDialogContent className="max-w-md">
                    <AlertDialogHeader>
-                      <AlertDialogCancel asChild>
-                        <Button variant="ghost" size="icon" className="absolute right-4 top-4 rounded-full" onClick={() => setIsPromoDialogOpen(false)}>
-                            <X className="h-4 w-4" />
-                            <span className="sr-only">Close</span>
-                        </Button>
-                      </AlertDialogCancel>
+                      <Button variant="ghost" size="icon" className="absolute right-4 top-4 rounded-full" onClick={() => setIsPromoDialogOpen(false)}>
+                          <X className="h-4 w-4" />
+                          <span className="sr-only">Close</span>
+                      </Button>
                       <div className="flex justify-center mb-4">
                           <div className="p-3 bg-yellow-100 rounded-full">
                               <Gift className="w-10 h-10 text-yellow-500" />

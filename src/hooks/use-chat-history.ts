@@ -16,14 +16,33 @@ export function useChatHistory(storageKey: string) {
   }, [storageKey]);
 
   const addMessage = useCallback((message: ChatMessage) => {
-    const updatedHistory = [...chatHistory, message];
-    setChatHistory(updatedHistory);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
-    } catch (error) {
-      console.error("Failed to save chat history to localStorage", error);
-    }
-  }, [chatHistory, storageKey]);
+    setChatHistory(prevHistory => {
+        const updatedHistory = [...prevHistory, message];
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
+        } catch (error) {
+            console.error("Failed to save chat history to localStorage", error);
+        }
+        return updatedHistory;
+    });
+  }, [storageKey]);
+
+  const updateLastMessage = useCallback((chunk: string) => {
+    setChatHistory(prevHistory => {
+        const updatedHistory = [...prevHistory];
+        const lastMessage = updatedHistory[updatedHistory.length - 1];
+
+        if (lastMessage && lastMessage.role === 'model') {
+            lastMessage.content += chunk;
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
+            } catch (error) {
+                 console.error("Failed to update chat history in localStorage", error);
+            }
+        }
+        return updatedHistory;
+    });
+  }, [storageKey]);
   
   const clearHistory = useCallback(() => {
     setChatHistory([]);
@@ -35,5 +54,5 @@ export function useChatHistory(storageKey: string) {
   }, [storageKey]);
 
 
-  return { chatHistory, addMessage, clearHistory };
+  return { chatHistory, addMessage, updateLastMessage, clearHistory };
 }
