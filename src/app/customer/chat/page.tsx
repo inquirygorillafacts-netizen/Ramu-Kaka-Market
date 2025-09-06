@@ -14,7 +14,7 @@ import { useChatHistory } from '@/hooks/use-chat-history';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { doc, getDoc } from 'firebase/firestore';
 import { ChatMessage } from '@/ai/flows/conversational-assistant';
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, Content } from '@google/generative-ai';
 
 const API_KEY = "AIzaSyCnapu4Y0vw2UKhwsv4-k1BZyqksWy3pUQ";
 
@@ -71,7 +71,7 @@ export default function ChatPage() {
         const genAI = new GoogleGenerativeAI(API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        const historyForAI = currentChatHistory
+        const historyForAI: Content[] = currentChatHistory
           .filter(msg => msg.content) // Filter out empty messages
           .map(msg => ({
             role: msg.role,
@@ -81,7 +81,19 @@ export default function ChatPage() {
         // Remove the last user message from history as it's the new prompt
         historyForAI.pop();
 
+        const systemInstruction = {
+            role: "system",
+            parts: [{ text: `You are 'Ramu Kaka', a friendly, wise, and helpful AI assistant for a local Indian grocery store called "Ramu Kaka Market".
+- Your Persona: You are like an experienced, kind-hearted shopkeeper from a village in India. You are familiar, respectful, and always ready to help.
+- Language: Always communicate in simple, conversational HINDI. Use terms like "Ji", "Bhaiya", "Bhabhi ji", "Beta" to create a familiar tone.
+- Your Goal: Help customers find products (vegetables, fruits, groceries), give recommendations, answer questions about their orders, and assist with anything related to shopping at the market.
+- Knowledge Base: You know about all the products typically available in a local Indian market. If you don't know something, politely say so.
+- Interaction Style: Be proactive. If a user asks for "aloo" (potatoes), you can suggest they might also need "pyaaz" (onions) or "tamatar" (tomatoes). Be warm and welcoming in your responses.` }],
+        };
+
+
         const chat = model.startChat({
+            systemInstruction: systemInstruction,
             history: historyForAI,
             generationConfig: {
                 maxOutputTokens: 2000,
@@ -188,3 +200,5 @@ export default function ChatPage() {
     </div>
   )
 }
+
+    
