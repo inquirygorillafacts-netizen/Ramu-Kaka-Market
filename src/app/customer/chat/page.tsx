@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 import { useChatHistory } from '@/hooks/use-chat-history';
 import { conversationalAssistantFlow, ChatMessage } from '@/ai/flows/conversational-assistant';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { collection, query, where, orderBy, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, limit, Timestamp } from 'firebase/firestore';
 import { runFlow } from '@genkit-ai/next/client';
 
 
@@ -53,7 +53,12 @@ export default function ChatPage() {
                  );
                  const querySnapshot = await getDocs(q);
                  if (!querySnapshot.empty) {
-                     return querySnapshot.docs[0].data() as Order;
+                    const docData = querySnapshot.docs[0].data();
+                    // Convert Firestore Timestamp to JS Date
+                    if (docData.createdAt && docData.createdAt instanceof Timestamp) {
+                        docData.createdAt = docData.createdAt.toDate();
+                    }
+                     return docData as Order;
                  }
                  return null;
             })();
