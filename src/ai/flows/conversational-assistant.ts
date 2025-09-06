@@ -55,11 +55,10 @@ export const conversationalAssistantFlow = chatAi.defineFlow(
     // The user's last message is the prompt.
     const lastUserMessage = history.pop();
 
-    const {stream, response} = chatAi.generate({
+    const {stream, response} = chatAi.generateStream({
       model: 'googleai/gemini-1.5-flash',
       history: history,
       prompt: lastUserMessage?.content[0].text || '',
-      stream: true,
     });
     
     // The flow directly returns the text stream to the client.
