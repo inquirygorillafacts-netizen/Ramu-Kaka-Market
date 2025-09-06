@@ -13,14 +13,9 @@ import { useRouter } from 'next/navigation';
 import { useChatHistory } from '@/hooks/use-chat-history';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { doc, getDoc } from 'firebase/firestore';
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/googleai';
-import type { ChatMessage } from '@/ai/flows/conversational-assistant';
+import { conversationalAssistantFlow, ChatMessage } from '@/ai/flows/conversational-assistant';
+import { runFlow } from '@genkit-ai/next/client';
 
-// Initialize a dedicated AI instance for the chat directly in the frontend
-const chatAi = genkit({
-  plugins: [googleAI({ apiKey: "AIzaSyCnapu4Y0vw2UKhwsv4-k1BZyqksWy3pUQ" })],
-});
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -71,22 +66,13 @@ export default function ChatPage() {
     addMessage({ role: 'model', content: '' });
 
     try {
-        const historyForApi = currentChatHistory.map(msg => ({
-            role: msg.role,
-            content: [{ text: msg.content }]
-        }));
+       const stream = await runFlow(conversationalAssistantFlow, {
+         chatHistory: currentChatHistory
+       });
 
-        const lastUserMessage = historyForApi.pop();
-
-        const { stream } = chatAi.generateStream({
-            model: 'googleai/gemini-1.5-flash',
-            history: historyForApi,
-            prompt: lastUserMessage?.content[0].text || '',
-        });
-
-        for await (const chunk of stream) {
-            updateLastMessage(chunk);
-        }
+       for await (const chunk of stream) {
+         updateLastMessage(chunk);
+       }
 
     } catch (error: any) {
         console.error("AI Error:", error);
