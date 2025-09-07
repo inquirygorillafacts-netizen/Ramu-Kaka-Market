@@ -110,6 +110,7 @@ export default function CartPage() {
         const apiKey = await getGeminiApiKey();
         if (!apiKey) {
             toast({variant: 'destructive', title: 'API Key Error', description: 'Could not find the Gemini API key.'});
+            setLoadingRecommendation(false);
             return;
         }
         const genAI = new GoogleGenerativeAI(apiKey);
@@ -145,21 +146,37 @@ Provide the output in a JSON object with two keys: "greeting" and "recommendatio
         setRecommendation(JSON.parse(text));
       } catch (err: any) {
         console.error("AI recommendation error:", err);
-        // Show a more user-friendly error from the API if possible
-        const errorDetails = err.message.includes('429') ? 'You have reached the daily limit for AI suggestions.' : 'Could not get a recommendation at this time.';
-        toast({
-            variant: 'destructive',
-            title: 'AI Suggestion Failed',
-            description: errorDetails
-        });
+        // Don't show toast for quota errors, just fail silently.
+        if (!err.message.includes('429')) {
+             toast({
+                variant: 'destructive',
+                title: 'AI Suggestion Failed',
+                description: 'Could not get a recommendation at this time.'
+            });
+        }
+        setRecommendation(null);
       } finally {
         setLoadingRecommendation(false);
       }
     } else {
-      toast({title: 'Empty Cart', description: 'Add some items to your cart to get a recommendation.'});
       setRecommendation(null);
     }
   };
+
+  useEffect(() => {
+    // Debounce the recommendation fetch
+    const handler = setTimeout(() => {
+      if (cart.length > 0) {
+        fetchRecommendation();
+      } else {
+        setRecommendation(null);
+      }
+    }, 1500); // Wait for 1.5s of inactivity
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [JSON.stringify(cart), profile.name]);
 
 
   const updateCart = (newCart: CartItem[]) => {
@@ -387,23 +404,21 @@ Provide the output in a JSON object with two keys: "greeting" and "recommendatio
                 ))}
             </div>
             
-             <Card className="bg-card p-4 rounded-xl shadow-sm border">
-                 <CardContent className="p-0">
-                     {recommendation ? (
+            <Card className="bg-card p-4 rounded-xl shadow-sm border min-h-[64px] flex items-center">
+                <CardContent className="p-0 w-full">
+                    {loadingRecommendation ? (
+                        <div className="flex items-center gap-3 text-muted-foreground text-sm">
+                            <Loader2 className="w-4 h-4 animate-spin"/>
+                            <span>रामू काका आपकी टोकरी देख रहे हैं...</span>
+                        </div>
+                    ) : recommendation ? (
                          <div className="text-sm text-foreground space-y-2">
                             <p className="font-semibold text-primary flex items-center gap-2"><Lightbulb className="w-5 h-5"/> {recommendation.greeting}</p>
                             <p>{recommendation.recommendation}</p>
                          </div>
                      ) : (
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="font-semibold">रामू काका से सलाह लें</p>
-                                <p className="text-sm text-muted-foreground">अपनी टोकरी के लिए सुझाव पाएं।</p>
-                            </div>
-                            <Button onClick={fetchRecommendation} disabled={loadingRecommendation}>
-                                {loadingRecommendation && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                सलाह लें
-                            </Button>
+                        <div className="text-sm text-muted-foreground">
+                            आपकी टोकरी के लिए सुझाव यहां दिखाई देंगे।
                         </div>
                      )}
                  </CardContent>
@@ -595,3 +610,5 @@ Provide the output in a JSON object with two keys: "greeting" and "recommendatio
     </div>
   );
 }
+
+    
