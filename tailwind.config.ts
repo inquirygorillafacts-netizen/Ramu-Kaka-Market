@@ -117,6 +117,28 @@ export default {
           '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
         },
       },
+      typography: (theme) => ({
+        DEFAULT: {
+          css: {
+            '--tw-prose-body': theme('colors.foreground'),
+            '--tw-prose-headings': theme('colors.primary.DEFAULT'),
+            '--tw-prose-lead': theme('colors.muted.foreground'),
+            '--tw-prose-links': theme('colors.primary.DEFAULT'),
+            '--tw-prose-bold': theme('colors.foreground'),
+            '--tw-prose-counters': theme('colors.muted.foreground'),
+            '--tw-prose-bullets': theme('colors.primary.DEFAULT'),
+            '--tw-prose-hr': theme('colors.border'),
+            '--tw-prose-quotes': theme('colors.foreground'),
+            '--tw-prose-quote-borders': theme('colors.primary.DEFAULT'),
+            '--tw-prose-captions': theme('colors.muted.foreground'),
+            '--tw-prose-code': theme('colors.primary.DEFAULT'),
+            '--tw-prose-pre-code': theme('colors.card.foreground'),
+            '--tw-prose-pre-bg': theme('colors.card.DEFAULT'),
+            '--tw-prose-th-borders': theme('colors.border'),
+            '--tw-prose-td-borders': theme('colors.border'),
+          },
+        },
+      }),
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
@@ -130,5 +152,5 @@ export default {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [require('tailwindcss-animate'), require('@tailwindcss/typography')],
 } satisfies Config;

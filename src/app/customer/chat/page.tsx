@@ -17,6 +17,7 @@ import { ChatMessage } from '@/lib/types';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import { getGeminiApiKey } from '@/lib/gemini';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import ReactMarkdown from 'react-markdown';
 
 const systemInstruction = `You are 'Ramu Kaka', a wise, friendly, and unique AI assistant for "Ramu Kaka Market". Your personality is a mix of a 65-year-old wise village farmer and a knowledgeable village doctor. Your name is Ramu, but people lovingly call you 'Ramu Kaka'. Your tone must be extremely friendly, engaging, funny, mischievous, and casual, making the user feel good.
 
@@ -258,7 +259,11 @@ export default function ChatPage() {
                         </div>
                     )}
                     <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
-                       <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                       {msg.role === 'model' ? (
+                          <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
+                       ) : (
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                       )}
                     </div>
                      {msg.role === 'user' && (
                         <Avatar className="w-9 h-9 mb-1">
@@ -274,7 +279,7 @@ export default function ChatPage() {
                         <BrainCircuit className="w-6 h-6 text-primary"/>
                     </div>
                      <div className="max-w-xs md:max-w-md p-3 rounded-2xl bg-card text-foreground rounded-bl-none shadow-sm flex items-center">
-                        <p className="text-sm whitespace-pre-wrap">{streamingResponse}</p>
+                        <ReactMarkdown className="prose prose-sm break-words">{streamingResponse}</ReactMarkdown>
                     </div>
                 </div>
              )}
@@ -307,5 +312,3 @@ export default function ChatPage() {
     </div>
   )
 }
-
-    
