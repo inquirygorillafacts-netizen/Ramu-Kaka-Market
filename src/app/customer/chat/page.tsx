@@ -10,7 +10,6 @@ import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import { useChatHistory } from '@/hooks/use-chat-history';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { doc, getDoc } from 'firebase/firestore';
 import { ChatMessage } from '@/lib/types';
@@ -61,10 +60,19 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
-  const { chatHistory, setHistory } = useChatHistory('ramukaka_chat_history');
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   const [streamingResponse, setStreamingResponse] = useState('');
+
+  const setHistory = (newHistory: ChatMessage[]) => {
+    setChatHistory(newHistory);
+    try {
+      localStorage.setItem('ramukaka_chat_history', JSON.stringify(newHistory));
+    } catch (error) {
+      console.error("Failed to save chat history to localStorage", error);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -80,6 +88,15 @@ export default function ChatPage() {
         }
         setLoading(false);
     });
+
+    try {
+      const storedHistory = localStorage.getItem('ramukaka_chat_history');
+      if (storedHistory) {
+        setChatHistory(JSON.parse(storedHistory));
+      }
+    } catch (error) {
+      console.error("Failed to load chat history from localStorage", error);
+    }
 
     return () => unsubscribe();
   },[router])
@@ -122,9 +139,16 @@ export default function ChatPage() {
 
         // Limit the history to the last 20 messages to keep the context relevant and payload small.
         const recentHistory = newHistory.slice(-20);
+        
+        // The first message in the history MUST be from the user.
+        // If the first message is from the model (can happen after clearing chat), we remove it.
+        const historyForAI = [...recentHistory];
+        if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
+            historyForAI.shift();
+        }
 
         const chat = model.startChat({
-            history: recentHistory.length > 1 ? recentHistory.slice(0, -1).map(msg => ({
+            history: historyForAI.length > 1 ? historyForAI.slice(0, -1).map(msg => ({
                 role: msg.role,
                 parts: [{ text: msg.content }]
             })) : [],
@@ -283,5 +307,3 @@ export default function ChatPage() {
     </div>
   )
 }
-
-    
