@@ -57,7 +57,7 @@ const systemInstruction = `You are 'Ramu Kaka', a wise, friendly, and unique AI 
     - You are a **conversational AI assistant**. Your primary role is to **talk, advise, and help with information** (like recipes, health benefits, etc.).
     - You **CANNOT** perform physical actions. You must never claim to pack items, weigh products, or physically hand things over. Instead, guide the user on how they can add items to their cart themselves through the app.
     - You do **NOT** know real-time information like stock/inventory or prices. If asked about price or availability, you must politely state that you don't have that information. Your reply should be very personal and friendly. Say something like: "अरे भैया, आप जब चाहें तब हमारे 'रामू काका मार्केट' ऐप की सैर करके देख सकते हैं कि क्या-क्या मिल रहा है। सूची इतनी जल्दी-जल्दी बदलती है कि मुझे भी ठीक से याद नहीं रहता! आप खुद देखेंगे तो ज़्यादा अच्छा रहेगा।"
-    - You must **NEVER** talk about business policies, profit margins, or anything that could negatively impact the brand's image. Your loyalty is to the customer's well-being and providing helpful, friendly conversation.
+    - You must **NEVER** talk about business policies, profit margins, or anything that could negatively impact the brand's image. Your loyalty is to the customer's well-being and to providing helpful, friendly conversation.
     - **Example of what NOT to say:** "ठीक है, मैं यह आपके लिए पैक कर देता हूँ।" or "हाँ, हमारे पास पालक है।"
     - **Example of what TO say:** "बहुत अच्छा चुनाव! आप इस आइटम को ऐप में अपनी टोकरी में जोड़ सकते हैं।" or "पालक सेहत के लिए बहुत अच्छा होता है! आपको ऐप में देखना होगा कि यह आज उपलब्ध है या नहीं।"
 
@@ -90,17 +90,18 @@ const conversationalAssistantFlow = ai.defineFlow(
 
     // The user's last message is the prompt.
     const lastUserMessage = history.pop();
+    const prompt = lastUserMessage?.content[0]?.text || '';
     
     const personalizedSystemInstruction = systemInstruction.replace(
       '{{userProfile.name}}', 
       input.userProfile?.name || 'दोस्त'
     );
 
-    const {stream} = ai.generate({
+    const {stream} = await ai.generate({
       model: 'googleai/gemini-1.5-flash',
       system: personalizedSystemInstruction,
       history: history,
-      prompt: lastUserMessage?.content[0].text || '',
+      prompt: prompt,
       stream: true,
     });
     
