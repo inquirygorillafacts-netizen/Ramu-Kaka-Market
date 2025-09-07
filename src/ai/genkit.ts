@@ -22,7 +22,8 @@ const keyCache = {
  * Caches the keys after the first fetch to avoid repeated database reads.
  */
 async function getApiKeys(): Promise<{ gemini_key: string, razorpay_key_id: string, razorpay_key_secret: string }> {
-    if (keyCache.gemini_key) {
+    // This function now only fetches from Firestore if the cache is empty.
+    if (keyCache.gemini_key && keyCache.razorpay_key_id) {
         return keyCache;
     }
     
@@ -47,7 +48,8 @@ async function getApiKeys(): Promise<{ gemini_key: string, razorpay_key_id: stri
     } catch (error) {
         console.error("Error fetching API keys from Firestore:", error);
     }
-
+    
+    // Fallback to placeholder if still no key.
     if (!keyCache.gemini_key) keyCache.gemini_key = apiKey;
 
     return keyCache;
@@ -57,9 +59,11 @@ async function getApiKeys(): Promise<{ gemini_key: string, razorpay_key_id: stri
 export const ai = genkit({
   plugins: [
     googleAI({
-      // The API key is now provided by our async function.
+      // The API key is now correctly provided by our async function for every operation.
       apiKey: async () => (await getApiKeys()).gemini_key,
     }),
   ],
-  model: 'googleai/gemini-1.5-flash-latest',
+  // This model definition is not strictly necessary here but can be a good default.
+  // Flows will specify their own models.
+  model: 'googleai/gemini-1.5-flash-latest', 
 });
