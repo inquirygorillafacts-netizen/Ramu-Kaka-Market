@@ -25,11 +25,18 @@ export function useChatHistory(storageKey: string) {
     }
   }, [storageKey]);
 
-  const addMessage = useCallback((message: ChatMessage) => {
+  const addMessage = useCallback((message: ChatMessage, skipSave: boolean = false) => {
     const newHistory = [...chatHistory, message];
-    setHistory(newHistory);
+    setChatHistory(newHistory);
+    if (!skipSave) {
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(newHistory));
+        } catch (error) {
+            console.error("Failed to save chat history to localStorage", error);
+        }
+    }
     return newHistory;
-  }, [chatHistory, setHistory]);
+  }, [chatHistory, storageKey]);
 
 
   return { chatHistory, setHistory, addMessage };
