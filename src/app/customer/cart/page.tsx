@@ -24,11 +24,28 @@ import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { getCartRecommendations, GetCartRecommendationsOutput } from '@/ai/flows/get-cart-recommendations';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import Link from 'next/link';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 declare const Razorpay: any;
+
+// WARNING: This is highly insecure. The API key is exposed to the client.
+// This should be replaced with a secure server-side implementation as soon as possible.
+async function getApiKey() {
+  try {
+    const configDocRef = doc(db, 'secure_configs', 'api_keys');
+    const docSnap = await getDoc(configDocRef);
+    if (docSnap.exists() && docSnap.data().gemini_key) {
+      return docSnap.data().gemini_key;
+    } else {
+      throw new Error('Gemini API key not found in Firestore.');
+    }
+  } catch (error) {
+    console.error("Error fetching API key:", error);
+    return null;
+  }
+}
 
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -41,7 +58,7 @@ export default function CartPage() {
   const [hasShownPromo, setHasShownPromo] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isCodConfirmOpen, setIsCodConfirmOpen] = useState(false);
-  const [recommendation, setRecommendation] = useState<GetCartRecommendationsOutput | null>(null);
+  const [recommendation, setRecommendation] = useState<{greeting: string, recommendation: string} | null>(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -103,20 +120,56 @@ export default function CartPage() {
   }, []);
 
   useEffect(() => {
-    if (cart.length > 0 && profile.name) {
+    const fetchRecommendation = async () => {
+      if (cart.length > 0 && profile.name) {
         setLoadingRecommendation(true);
-        const cartItemNames = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
-        getCartRecommendations({customerName: profile.name, cartItems: cartItemNames})
-            .then(rec => setRecommendation(rec))
-            .catch(err => {
-              console.error("AI recommendation error:", err);
-              // Do not show a toast for this, as it's a non-critical feature.
-              // Just log it for debugging.
-            })
-            .finally(() => setLoadingRecommendation(false));
-    } else {
+        try {
+          const apiKey = await getApiKey();
+          if (!apiKey) {
+              throw new Error("API Key could not be fetched.");
+          }
+          const genAI = new GoogleGenerativeAI(apiKey);
+          const model = genAI.getGenerativeModel({
+              model: "gemini-1.5-flash",
+              generationConfig: { responseMimeType: "application/json" },
+          });
+
+          const cartItemNames = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
+          const prompt = `You are a friendly and helpful AI assistant for "Ramu Kaka Market", a local grocery store in a village in India. Your persona is like a helpful local shopkeeper who speaks Hindi.
+
+Your task is to provide a warm, personalized greeting and a useful product recommendation based on the customer's cart. The entire output must be in simple, conversational HINDI.
+
+- Address the customer warmly in Hindi. Use their name, like "Namaste [Customer Name] ji," or a friendly, respectful term like "Namaste Bhabhi ji," or "Namaste Bhaiya,".
+- Look at the items in their cart.
+- Suggest one other item in Hindi that would go well with what they're already buying. For example, if they have 'Palak' (spinach), you could suggest 'Chana Dal' for 'Dal Palak'. If they have potatoes, you could suggest onions.
+- Keep the tone very simple, helpful, and personal, like a real shopkeeper would talk.
+
+Example Interaction:
+- Customer Name: Priya
+- Items in Cart: Palak, Tamatar
+- Your Greeting (Hindi): नमस्ते प्रिया जी,
+- Your Recommendation (Hindi): आपने पालक लिया है, इसके साथ चना दाल बहुत अच्छी लगेगी दाल-पालक बनाने के लिए!
+
+Customer Name: ${profile.name}
+Items in Cart: ${cartItemNames}
+
+Provide the output in a JSON object with two keys: "greeting" and "recommendation", with both values in HINDI.
+`;
+          const result = await model.generateContent(prompt);
+          const response = await result.response;
+          const text = response.text();
+          setRecommendation(JSON.parse(text));
+        } catch (err) {
+          console.error("AI recommendation error:", err);
+          // Do not show toast to user for this non-critical feature.
+        } finally {
+          setLoadingRecommendation(false);
+        }
+      } else {
         setRecommendation(null);
-    }
+      }
+    };
+    fetchRecommendation();
   }, [cart.length, profile.name]);
 
 
