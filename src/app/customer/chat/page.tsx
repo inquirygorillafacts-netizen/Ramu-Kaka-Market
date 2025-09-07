@@ -16,7 +16,23 @@ import { doc, getDoc } from 'firebase/firestore';
 import { ChatMessage } from '@/ai/flows/conversational-assistant';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, Content } from '@google/generative-ai';
 
-const API_KEY = "AIzaSyCnapu4Y0vw2UKhwsv4-k1BZyqksWy3pUQ";
+// A function to fetch the API key from Firestore. This is more secure.
+async function getApiKey(): Promise<string> {
+    try {
+        const configDocRef = doc(db, 'secure_configs', 'api_keys');
+        const docSnap = await getDoc(configDocRef);
+        if (docSnap.exists() && docSnap.data().gemini_key) {
+            return docSnap.data().gemini_key;
+        } else {
+            console.error("API Key document not found in Firestore!");
+            return "MISSING_API_KEY"; // Return a clearly invalid key
+        }
+    } catch (error) {
+        console.error("Error fetching API key:", error);
+        return "MISSING_API_KEY";
+    }
+}
+
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -29,7 +45,6 @@ export default function ChatPage() {
   const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
-  // New state to handle the in-progress streaming response separately
   const [streamingResponse, setStreamingResponse] = useState('');
 
   useEffect(() => {
@@ -68,20 +83,24 @@ export default function ChatPage() {
     const userPrompt = chatInput;
     setChatInput('');
     setIsAiResponding(true);
-    setStreamingResponse(''); // Reset streaming response state
+    setStreamingResponse('');
 
     try {
-        const genAI = new GoogleGenerativeAI(API_KEY);
+        const apiKey = await getApiKey();
+        if (apiKey === 'MISSING_API_KEY') {
+            throw new Error("Could not retrieve API Key.");
+        }
+
+        const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const historyForAI: Content[] = [...chatHistory, userMessage]
-          .filter(msg => msg.content) // Filter out empty messages
+          .filter(msg => msg.content)
           .map(msg => ({
-            role: msg.role === 'model' ? 'model' : 'user', // Ensure correct role mapping
+            role: msg.role === 'model' ? 'model' : 'user',
             parts: [{ text: msg.content }]
           }));
         
-        // The last message is the new prompt, so it should not be in the history
         historyForAI.pop();
 
         const systemInstruction = {
@@ -147,14 +166,12 @@ export default function ChatPage() {
          setStreamingResponse(finalResponse);
        }
        
-       // Once streaming is complete, add the final message to the history
        addMessage({ role: 'model', content: finalResponse });
-       setStreamingResponse(''); // Clear the streaming state
+       setStreamingResponse('');
 
     } catch (error: any) {
         console.error("AI Error:", error);
         toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
-        // On error, remove the user's last message to allow them to retry.
         setHistory(prev => prev.slice(0, prev.length - 1));
     } finally {
         setIsAiResponding(false);
