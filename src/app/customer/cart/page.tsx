@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { addDoc, collection, doc, getDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, query } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -107,6 +107,11 @@ export default function CartPage() {
     if (cart.length > 0 && profile.name) {
       setLoadingRecommendation(true);
       try {
+        // Step 1: Fetch all available products
+        const productsQuery = query(collection(db, 'products'));
+        const productsSnapshot = await getDocs(productsQuery);
+        const allProducts = productsSnapshot.docs.map(doc => doc.data().name).join(', ');
+
         const apiKey = await getGeminiApiKey();
         if (!apiKey) {
             toast({variant: 'destructive', title: 'API Key Error', description: 'Could not find the Gemini API key.'});
@@ -120,23 +125,19 @@ export default function CartPage() {
         });
 
         const cartItemNames = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
+        // Step 2: Update the prompt with the list of available products
         const prompt = `You are a friendly and helpful AI assistant for "Ramu Kaka Market", a local grocery store in a village in India. Your persona is like a helpful local shopkeeper who speaks Hindi.
 
-Your task is to provide a warm, personalized greeting and a useful product recommendation based on the customer's cart. The entire output must be in simple, conversational HINDI.
+Your task is to provide a warm, personalized greeting and a useful product recommendation based on the customer's cart AND the list of available products. The entire output must be in simple, conversational HINDI.
 
 - Address the customer warmly in Hindi. Use their name, like "Namaste [Customer Name] ji," or a friendly, respectful term like "Namaste Bhabhi ji," or "Namaste Bhaiya,".
 - Look at the items in their cart.
-- Suggest one other item in Hindi that would go well with what they're already buying. For example, if they have 'Palak' (spinach), you could suggest 'Chana Dal' for 'Dal Palak'. If they have potatoes, you could suggest onions.
+- **CRITICAL:** Suggest one other item THAT IS ONLY FROM THE 'Available Products' list. The recommendation must go well with what they're already buying. For example, if they have 'Palak' (spinach), and 'Chana Dal' is in the available list, you could suggest 'Chana Dal'. If 'Panner' is available, you could suggest 'Paneer'.
 - Keep the tone very simple, helpful, and personal, like a real shopkeeper would talk.
-
-Example Interaction:
-- Customer Name: Priya
-- Items in Cart: Palak, Tamatar
-- Your Greeting (Hindi): नमस्ते प्रिया जी,
-- Your Recommendation (Hindi): आपने पालक लिया है, इसके साथ चना दाल बहुत अच्छी लगेगी दाल-पालक बनाने के लिए!
 
 Customer Name: ${profile.name}
 Items in Cart: ${cartItemNames}
+Available Products: ${allProducts}
 
 Provide the output in a JSON object with two keys: "greeting" and "recommendation", with both values in HINDI.
 `;
