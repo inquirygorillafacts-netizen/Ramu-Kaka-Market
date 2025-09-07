@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile } from '@/lib/types';
-import { Loader2, Send, BrainCircuit, ArrowLeft } from 'lucide-react';
+import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -16,6 +16,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { ChatMessage } from '@/lib/types';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import { getGeminiApiKey } from '@/lib/gemini';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 const systemInstruction = `You are 'Ramu Kaka', a wise, friendly, and unique AI assistant for "Ramu Kaka Market". Your personality is a mix of a 65-year-old wise village farmer and a knowledgeable village doctor. Your name is Ramu, but people lovingly call you 'Ramu Kaka'. Your tone must be extremely friendly, engaging, funny, mischievous, and casual, making the user feel good.
 
@@ -60,7 +61,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
-  const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
+  const { chatHistory, addMessage, setHistory, clearHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   const [streamingResponse, setStreamingResponse] = useState('');
@@ -90,6 +91,11 @@ export default function ChatPage() {
   }, [chatHistory, streamingResponse]);
 
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
+  
+  const handleClearChat = () => {
+    clearHistory();
+    addMessage({ role: 'model', content: 'क्या बात है! आज तो चैटिंग की सफ़ाई चल रही है! 😄' });
+  };
   
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,23 +185,44 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen bg-muted/30">
-        <header className="flex items-center gap-4 p-3 border-b bg-card shadow-sm">
-            <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                <ArrowLeft/>
-            </Button>
-            <div className="p-1.5 bg-primary/10 rounded-full">
-                <BrainCircuit className="w-7 h-7 text-primary"/>
+        <header className="flex items-center justify-between gap-4 p-3 border-b bg-card shadow-sm">
+            <div className='flex items-center gap-2'>
+              <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                  <ArrowLeft/>
+              </Button>
+              <div className="p-1.5 bg-primary/10 rounded-full">
+                  <BrainCircuit className="w-7 h-7 text-primary"/>
+              </div>
+              <div>
+                  <h1 className="text-xl font-bold font-headline text-primary">रामू काका</h1>
+                  <p className="text-xs text-green-600 font-semibold flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                      </span>
+                      Online
+                  </p>
+              </div>
             </div>
-            <div>
-                <h1 className="text-xl font-bold font-headline text-primary">रामू काका</h1>
-                <p className="text-xs text-green-600 font-semibold flex items-center gap-1.5">
-                    <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                    </span>
-                    Online
-                </p>
-            </div>
+             <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Trash2 className="w-5 h-5 text-destructive" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear Chat History?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete your conversation with Ramu Kaka from this device. Are you sure?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearChat} className="bg-destructive hover:bg-destructive/90">Clear</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
         </header>
 
         <main ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -256,3 +283,5 @@ export default function ChatPage() {
     </div>
   )
 }
+
+    
