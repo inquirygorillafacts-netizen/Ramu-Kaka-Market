@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -38,30 +39,6 @@ const PersonalizeCustomerEntryOutputSchema = z.object({
 export type PersonalizeCustomerEntryOutput =
   z.infer<typeof PersonalizeCustomerEntryOutputSchema>;
 
-export async function personalizeCustomerEntry(
-  input: PersonalizeCustomerEntryInput
-): Promise<PersonalizeCustomerEntryOutput> {
-  return personalizeCustomerEntryFlow(input);
-}
-
-const prompt = ai.definePrompt({
-  name: 'personalizedCustomerEntryPrompt',
-  input: {schema: PersonalizeCustomerEntryInputSchema},
-  output: {schema: PersonalizeCustomerEntryOutputSchema},
-  prompt: `You are an AI assistant designed to personalize the customer's experience upon logging in to Ramu Kaka Market.
-
-  Given the following information about the customer, determine the most relevant promotions, product recommendations, and a personalized welcome message.
-
-  Customer ID: {{{customerId}}}
-  Customer Name: {{{customerName}}}
-  Purchase History: {{{customerPurchaseHistory}}}
-  Customer Preferences: {{{customerPreferences}}}
-
-  Consider the customer's past purchases, stated preferences, and current market trends to tailor the experience.
-
-  Provide the output in JSON format.
-  `,
-});
 
 const personalizeCustomerEntryFlow = ai.defineFlow(
   {
@@ -70,7 +47,33 @@ const personalizeCustomerEntryFlow = ai.defineFlow(
     outputSchema: PersonalizeCustomerEntryOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
+    const prompt = `You are an AI assistant designed to personalize the customer's experience upon logging in to Ramu Kaka Market.
+
+  Given the following information about the customer, determine the most relevant promotions, product recommendations, and a personalized welcome message.
+
+  Customer ID: ${input.customerId}
+  Customer Name: ${input.customerName}
+  Purchase History: ${input.customerPurchaseHistory}
+  Customer Preferences: ${input.customerPreferences}
+
+  Consider the customer's past purchases, stated preferences, and current market trends to tailor the experience.
+
+  Provide the output in JSON format.
+  `;
+    const {output} = await ai.generate({
+      prompt: prompt,
+      model: 'googleai/gemini-1.5-flash',
+      output: {
+        schema: PersonalizeCustomerEntryOutputSchema,
+      }
+    });
     return output!;
   }
 );
+
+
+export async function personalizeCustomerEntry(
+  input: PersonalizeCustomerEntryInput
+): Promise<PersonalizeCustomerEntryOutput> {
+  return personalizeCustomerEntryFlow(input);
+}
