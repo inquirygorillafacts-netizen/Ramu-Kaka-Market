@@ -23,7 +23,7 @@ export type GetCartRecommendationsInput = z.infer<
 >;
 
 const GetCartRecommendationsOutputSchema = z.object({
-  greeting: z.string().describe('A short, friendly greeting for the customer in Hindi, addressing them in a familiar tone like "Bhabhi ji" or "Bhaiya".'),
+  greeting: z.string().describe('A short, friendly greeting for the customer in Hindi, addressing them in a familiar tone like "Bhabhi ji" or "Bhayia".'),
   recommendation: z
     .string()
     .describe('A helpful and relevant recommendation in Hindi based on the cart items.'),
@@ -37,6 +37,7 @@ const getCartRecsPrompt = ai.definePrompt(
       name: 'getCartRecommendationsPrompt',
       input: { schema: GetCartRecommendationsInputSchema },
       output: { schema: GetCartRecommendationsOutputSchema },
+      model: 'googleai/gemini-1.5-flash',
       prompt: `You are a friendly and helpful AI assistant for "Ramu Kaka Market", a local grocery store in a village in India. Your persona is like a helpful local shopkeeper who speaks Hindi.
 
 Your task is to provide a warm, personalized greeting and a useful product recommendation based on the customer's cart. The entire output must be in simple, conversational HINDI.
