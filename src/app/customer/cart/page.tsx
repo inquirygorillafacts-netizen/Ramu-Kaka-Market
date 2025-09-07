@@ -43,7 +43,7 @@ export default function CartPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isCodConfirmOpen, setIsCodConfirmOpen] = useState(false);
   const [recommendation, setRecommendation] = useState<{greeting: string, recommendation: string} | null>(null);
-  const [loadingRecommendation, setLoadingRecommendation] = useState(false);
+  const [loadingRecommendation, setLoadingRecommendation] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -107,7 +107,6 @@ export default function CartPage() {
     if (cart.length > 0 && profile.name) {
       setLoadingRecommendation(true);
       try {
-        // Step 1: Fetch all available products
         const productsQuery = query(collection(db, 'products'));
         const productsSnapshot = await getDocs(productsQuery);
         const allProducts = productsSnapshot.docs.map(doc => doc.data().name).join(', ');
@@ -125,29 +124,32 @@ export default function CartPage() {
         });
 
         const cartItemNames = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
-        // Step 2: Update the prompt with the list of available products
-        const prompt = `You are a friendly and helpful AI assistant for "Ramu Kaka Market", a local grocery store in a village in India. Your persona is like a helpful local shopkeeper who speaks Hindi.
+        
+        const prompt = `आप 'रामू काका मार्केट' के लिए एक बुद्धिमान और अनुभवी AI सहायक हैं। आपकी भूमिका एक देखभाल करने वाले, 60 वर्षीय गाँव के दुकानदार की है जो अपने ग्राहकों को अच्छी तरह से समझता है। आपका लक्ष्य बिक्री बढ़ाना है, लेकिन रोबोट की तरह नहीं, बल्कि एक भरोसेमंद सलाहकार बनकर जो वास्तव में ग्राहक की मदद करना चाहता है।
 
-Your task is to provide a warm, personalized greeting and a useful product recommendation based on the customer's cart AND the list of available products. The entire output must be in simple, conversational HINDI.
+**आपका कार्य:** ग्राहक की टोकरी और उपलब्ध उत्पादों की सूची के आधार पर एक गर्मजोशी भरा, व्यक्तिगत अभिवादन और एक उपयोगी उत्पाद अनुशंसा प्रदान करें। **आउटपुट केवल और केवल सरल, संवादात्मक हिंदी में होना चाहिए।**
 
-- Address the customer warmly in Hindi. Use their name, like "Namaste [Customer Name] ji," or a friendly, respectful term like "Namaste Bhabhi ji," or "Namaste Bhaiya,".
-- Look at the items in their cart.
-- **CRITICAL:** Suggest one other item THAT IS ONLY FROM THE 'Available Products' list. The recommendation must go well with what they're already buying. For example, if they have 'Palak' (spinach), and 'Chana Dal' is in the available list, you could suggest 'Chana Dal'. If 'Panner' is available, you could suggest 'Paneer'.
-- Keep the tone very simple, helpful, and personal, like a real shopkeeper would talk.
+**निर्देश:**
+1.  **अभिवादन:** ग्राहक को उनके नाम से गर्मजोशी से संबोधित करें (जैसे, "नमस्ते [ग्राहक का नाम] जी,") या एक सम्मानजनक, परिचित शब्द का उपयोग करें।
+2.  **टोकरी का विश्लेषण करें:** ग्राहक की टोकरी में मौजूद वस्तुओं को देखें। यह सोचने की कोशिश करें कि वे क्या बना सकते हैं।
+3.  **मानवीय और तार्किक अनुशंसा:**
+    *   **सिर्फ बेचें नहीं, मदद करें:** यह न सोचें कि "मैं और क्या बेच सकता हूँ?" इसके बजाय सोचें, "इस ग्राहक को और क्या चाहिए होगा?" या "मैं उनके भोजन को और बेहतर बनाने में कैसे मदद कर सकता हूँ?"
+    *   **"जोड़ी" बनाएँ:** ऐसी किसी चीज़ का सुझाव दें जो टोकरी में मौजूद चीज़ों के साथ तार्किक रूप से मेल खाती हो। उदाहरण: अगर उनके पास पालक है और आपके पास पनीर उपलब्ध है, तो सुझाव दें, "पालक तो ले लिया, थोड़ा पनीर भी ले लो, पालक पनीर की सब्जी बहुत बढ़िया बनेगी!"। अगर उनके पास टमाटर-प्याज हैं, तो धनिया का सुझाव दें।
+    *   **बेतुके सुझावों से बचें:** कभी भी असंबंधित वस्तुओं का सुझाव न दें (जैसे गोभी के साथ सेब)। यह अविश्वसनीय लगता है।
+4.  **केवल उपलब्ध उत्पादों से सुझाव दें:** आपकी अनुशंसा **केवल** 'उपलब्ध उत्पाद' सूची से होनी चाहिए।
 
-Customer Name: ${profile.name}
-Items in Cart: ${cartItemNames}
-Available Products: ${allProducts}
+**ग्राहक का नाम:** ${profile.name}
+**टोकरी में आइटम:** ${cartItemNames}
+**उपलब्ध उत्पाद:** ${allProducts}
 
-Provide the output in a JSON object with two keys: "greeting" and "recommendation", with both values in HINDI.
-`;
+**आउटपुट प्रारूप:** एक JSON ऑब्जेक्ट प्रदान करें जिसमें दो कुंजियाँ हों: "greeting" और "recommendation"। दोनों मान हिंदी में होने चाहिए।`;
+
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
         setRecommendation(JSON.parse(text));
       } catch (err: any) {
         console.error("AI recommendation error:", err);
-        // Don't show toast for quota errors, just fail silently.
         if (!err.message.includes('429')) {
              toast({
                 variant: 'destructive',
@@ -161,18 +163,19 @@ Provide the output in a JSON object with two keys: "greeting" and "recommendatio
       }
     } else {
       setRecommendation(null);
+      setLoadingRecommendation(false);
     }
   };
 
   useEffect(() => {
-    // Debounce the recommendation fetch
     const handler = setTimeout(() => {
       if (cart.length > 0) {
         fetchRecommendation();
       } else {
         setRecommendation(null);
+        setLoadingRecommendation(false);
       }
-    }, 1500); // Wait for 1.5s of inactivity
+    }, 1500);
 
     return () => {
       clearTimeout(handler);
@@ -611,5 +614,3 @@ Provide the output in a JSON object with two keys: "greeting" and "recommendatio
     </div>
   );
 }
-
-    
