@@ -183,6 +183,13 @@ export default function CartPage() {
     if (!currentUser) return;
     setPlacingOrder(true);
     try {
+        const keyResponse = await fetch('/api/get-razorpay-key');
+        const { keyId } = await keyResponse.json();
+
+        if (!keyId) {
+            throw new Error('Could not fetch Razorpay key.');
+        }
+
         const response = await fetch('/api/razorpay', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -191,7 +198,7 @@ export default function CartPage() {
         const { order } = await response.json();
         
         const options = {
-            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+            key: keyId,
             amount: order.amount,
             currency: "INR",
             name: "Ramu Kaka Market",
