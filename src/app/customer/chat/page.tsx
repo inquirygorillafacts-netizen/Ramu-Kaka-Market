@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -93,7 +94,7 @@ export default function ChatPage() {
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
   const handleClearChat = () => {
-    setHistory([{ role: 'model', content: 'क्या बात है! आज तो चैटिंग की सफ़ाई चल रही है! 😄' }]);
+    setHistory([{ role: 'model', content: 'स्माइल प्लीज 😄' }]);
   };
   
   const handleChatSubmit = async (e: React.FormEvent) => {
