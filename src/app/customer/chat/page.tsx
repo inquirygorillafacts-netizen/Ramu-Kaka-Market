@@ -93,8 +93,7 @@ export default function ChatPage() {
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
   const handleClearChat = () => {
-    setHistory([]);
-    addMessage({ role: 'model', content: 'क्या बात है! आज तो चैटिंग की सफ़ाई चल रही है! 😄' }, true);
+    setHistory([{ role: 'model', content: 'क्या बात है! आज तो चैटिंग की सफ़ाई चल रही है! 😄' }]);
   };
   
   const handleChatSubmit = async (e: React.FormEvent) => {
@@ -122,9 +121,10 @@ export default function ChatPage() {
         
         const recentHistory = newHistory.slice(-20);
         
+        // This is the crucial fix. Ensure history sent to AI never starts with a 'model' role.
         const historyForAI = [...recentHistory];
         if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
-            historyForAI.shift(); 
+            historyForAI.shift(); // Remove the initial model message if it's the first in the buffer.
         }
 
         const chat = model.startChat({
