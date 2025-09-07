@@ -96,7 +96,7 @@ export default function ChatPage() {
     if (!chatInput.trim() || isAiResponding) return;
 
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
-    addMessage(userMessage);
+    const currentHistory = addMessage(userMessage);
     
     setChatInput('');
     setIsAiResponding(true);
@@ -114,8 +114,11 @@ export default function ChatPage() {
             systemInstruction: systemInstruction
         });
 
+        // Limit the history to the last 10 messages to keep the context relevant and payload small.
+        const recentHistory = currentHistory.slice(-10);
+
         const chat = model.startChat({
-            history: chatHistory.map(msg => ({
+            history: recentHistory.map(msg => ({
                 role: msg.role,
                 parts: [{ text: msg.content }]
             })),

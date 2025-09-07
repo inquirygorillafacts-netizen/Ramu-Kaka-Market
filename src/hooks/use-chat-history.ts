@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChatMessage } from '@/ai/flows/conversational-assistant';
+import { ChatMessage } from '@/lib/types';
 
 export function useChatHistory(storageKey: string) {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -16,7 +16,8 @@ export function useChatHistory(storageKey: string) {
     }
   }, [storageKey]);
 
-  const addMessage = useCallback((message: ChatMessage) => {
+  const addMessage = useCallback((message: ChatMessage): ChatMessage[] => {
+    let newHistory: ChatMessage[] = [];
     setChatHistory(prevHistory => {
         const updatedHistory = [...prevHistory, message];
         try {
@@ -24,8 +25,10 @@ export function useChatHistory(storageKey: string) {
         } catch (error) {
             console.error("Failed to save chat history to localStorage", error);
         }
+        newHistory = updatedHistory;
         return updatedHistory;
     });
+    return newHistory;
   }, [storageKey]);
 
   const updateLastMessage = useCallback((textChunk: string) => {
