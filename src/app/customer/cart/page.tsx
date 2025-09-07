@@ -103,23 +103,23 @@ export default function CartPage() {
     loadData();
   }, []);
 
-  useEffect(() => {
-    const fetchRecommendation = async () => {
-      if (cart.length > 0 && profile.name) {
-        setLoadingRecommendation(true);
-        try {
-          const apiKey = await getGeminiApiKey();
-          if (!apiKey) {
-              return; // Silently fail if no key
-          }
-          const genAI = new GoogleGenerativeAI(apiKey);
-          const model = genAI.getGenerativeModel({
-              model: "gemini-1.5-flash",
-              generationConfig: { responseMimeType: "application/json" },
-          });
+  const fetchRecommendation = async () => {
+    if (cart.length > 0 && profile.name) {
+      setLoadingRecommendation(true);
+      try {
+        const apiKey = await getGeminiApiKey();
+        if (!apiKey) {
+            toast({variant: 'destructive', title: 'API Key Error', description: 'Could not find the Gemini API key.'});
+            return;
+        }
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({
+            model: "gemini-1.5-flash",
+            generationConfig: { responseMimeType: "application/json" },
+        });
 
-          const cartItemNames = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
-          const prompt = `You are a friendly and helpful AI assistant for "Ramu Kaka Market", a local grocery store in a village in India. Your persona is like a helpful local shopkeeper who speaks Hindi.
+        const cartItemNames = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
+        const prompt = `You are a friendly and helpful AI assistant for "Ramu Kaka Market", a local grocery store in a village in India. Your persona is like a helpful local shopkeeper who speaks Hindi.
 
 Your task is to provide a warm, personalized greeting and a useful product recommendation based on the customer's cart. The entire output must be in simple, conversational HINDI.
 
@@ -139,22 +139,27 @@ Items in Cart: ${cartItemNames}
 
 Provide the output in a JSON object with two keys: "greeting" and "recommendation", with both values in HINDI.
 `;
-          const result = await model.generateContent(prompt);
-          const response = await result.response;
-          const text = response.text();
-          setRecommendation(JSON.parse(text));
-        } catch (err) {
-          console.error("AI recommendation error:", err);
-          // Do not show toast to user for this non-critical feature.
-        } finally {
-          setLoadingRecommendation(false);
-        }
-      } else {
-        setRecommendation(null);
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        setRecommendation(JSON.parse(text));
+      } catch (err: any) {
+        console.error("AI recommendation error:", err);
+        // Show a more user-friendly error from the API if possible
+        const errorDetails = err.message.includes('429') ? 'You have reached the daily limit for AI suggestions.' : 'Could not get a recommendation at this time.';
+        toast({
+            variant: 'destructive',
+            title: 'AI Suggestion Failed',
+            description: errorDetails
+        });
+      } finally {
+        setLoadingRecommendation(false);
       }
-    };
-    fetchRecommendation();
-  }, [cart.length, profile.name]);
+    } else {
+      toast({title: 'Empty Cart', description: 'Add some items to your cart to get a recommendation.'});
+      setRecommendation(null);
+    }
+  };
 
 
   const updateCart = (newCart: CartItem[]) => {
@@ -382,26 +387,32 @@ Provide the output in a JSON object with two keys: "greeting" and "recommendatio
                 ))}
             </div>
             
-            {(loadingRecommendation || recommendation) && (
-                 <div className="bg-card p-4 rounded-xl shadow-sm flex items-start gap-4 border">
-                     <Lightbulb className="w-6 h-6 text-primary mt-1"/>
-                     {loadingRecommendation ? (
-                         <div className="space-y-2 flex-grow">
-                            <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
-                            <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
-                         </div>
-                     ) : recommendation ? (
-                         <div className="text-sm text-foreground flex-grow">
-                            <p className="font-semibold text-primary">{recommendation.greeting}</p>
+             <Card className="bg-card p-4 rounded-xl shadow-sm border">
+                 <CardContent className="p-0">
+                     {recommendation ? (
+                         <div className="text-sm text-foreground space-y-2">
+                            <p className="font-semibold text-primary flex items-center gap-2"><Lightbulb className="w-5 h-5"/> {recommendation.greeting}</p>
                             <p>{recommendation.recommendation}</p>
                          </div>
-                     ) : null}
-                 </div>
-            )}
+                     ) : (
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="font-semibold">रामू काका से सलाह लें</p>
+                                <p className="text-sm text-muted-foreground">अपनी टोकरी के लिए सुझाव पाएं।</p>
+                            </div>
+                            <Button onClick={fetchRecommendation} disabled={loadingRecommendation}>
+                                {loadingRecommendation && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                सलाह लें
+                            </Button>
+                        </div>
+                     )}
+                 </CardContent>
+             </Card>
+
             <Button variant="outline" className="w-full" asChild>
                 <Link href="/customer/chat">
                     <MessageSquare className="mr-2 h-4 w-4" />
-                    रामू काका से कुछ भी पूछें
+                    रामू काका से कुछ और पूछें
                 </Link>
             </Button>
             
@@ -547,7 +558,7 @@ Provide the output in a JSON object with two keys: "greeting" and "recommendatio
                        <div className="text-center text-sm text-muted-foreground pt-2">
                          <span>कुछ भी सवाल है तो अभी कॉल करो</span>
                          <Button variant="link" className="p-0 h-auto" asChild>
-                            <a href="tel:8302806913"> 8302806913</a>
+                            <a href="tel:8302806913"></a>
                          </Button>
                        </div>
                   </AlertDialogHeader>
@@ -583,7 +594,4 @@ Provide the output in a JSON object with two keys: "greeting" and "recommendatio
       )}
     </div>
   );
-
 }
-
-    
