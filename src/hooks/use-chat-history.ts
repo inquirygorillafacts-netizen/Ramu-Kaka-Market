@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { ChatMessage } from '@/lib/types';
 
@@ -10,9 +9,12 @@ export function useChatHistory(storageKey: string) {
       const storedHistory = localStorage.getItem(storageKey);
       if (storedHistory) {
         setChatHistory(JSON.parse(storedHistory));
+      } else {
+        setChatHistory([{ role: 'model', content: 'स्माइल प्लीज 😄' }]);
       }
     } catch (error) {
       console.error("Failed to load chat history from localStorage", error);
+      setChatHistory([{ role: 'model', content: 'स्माइल प्लीज 😄' }]);
     }
   }, [storageKey]);
 
@@ -26,17 +28,10 @@ export function useChatHistory(storageKey: string) {
   }, [storageKey]);
 
   const addMessage = useCallback((message: ChatMessage) => {
-    setChatHistory(prevHistory => {
-        const updatedHistory = [...prevHistory, message];
-        try {
-            localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
-        } catch (error) {
-            console.error("Failed to save updated chat history to localStorage", error);
-        }
-        return updatedHistory;
-    });
-  }, [storageKey]);
+    const updatedHistory = [...chatHistory, message];
+    setHistory(updatedHistory);
+  }, [chatHistory, setHistory]);
 
 
-  return { chatHistory, setHistory, addMessage };
+  return { chatHistory, addMessage, setHistory };
 }

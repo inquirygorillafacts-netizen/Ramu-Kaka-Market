@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -62,7 +61,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
-  const { chatHistory, setHistory, addMessage } = useChatHistory('ramukaka_chat_history');
+  const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   const [streamingResponse, setStreamingResponse] = useState('');
@@ -104,6 +103,9 @@ export default function ChatPage() {
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
     addMessage(userMessage);
     
+    // We pass the *new* history to the AI, so we need to get it after the state update.
+    const newHistory = [...chatHistory, userMessage];
+
     setChatInput('');
     setIsAiResponding(true);
     setStreamingResponse('');
@@ -120,10 +122,10 @@ export default function ChatPage() {
             systemInstruction: systemInstruction
         });
         
-        const recentHistory = chatHistory.slice(-20);
+        const recentHistory = newHistory.slice(-20);
         
         // This is the crucial fix. Ensure history sent to AI never starts with a 'model' role.
-        const historyForAI = [...recentHistory, userMessage];
+        const historyForAI = [...recentHistory];
         if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
             historyForAI.shift(); // Remove the initial model message if it's the first in the buffer.
         }
@@ -174,8 +176,6 @@ export default function ChatPage() {
     } catch (error: any) {
         console.error("AI Error:", error);
         toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
-        // Revert to the history before the user message that caused the error
-        setHistory(chatHistory);
     } finally {
         setIsAiResponding(false);
     }
