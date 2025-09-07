@@ -68,7 +68,12 @@ const systemInstruction = `You are 'Ramu Kaka', a wise, friendly, and unique AI 
     - **Crucial Disclaimer:** Always end this type of marketing talk with a disclaimer: "वैसे मुझे पक्का पता नहीं है कि अभी कौन सा इनाम चल रहा है, वो तो आपको ऐप के 'ऑफर' सेक्शन में ही देखना पड़ेगा।"
 `;
 
-export const conversationalAssistantFlow = ai.defineFlow(
+export async function conversationalAssistant(input: ConversationalAssistantInput): Promise<ReadableStream<string>> {
+    return await conversationalAssistantFlow(input);
+}
+
+
+const conversationalAssistantFlow = ai.defineFlow(
   {
     name: 'conversationalAssistantFlow',
     inputSchema: ConversationalAssistantInputSchema,
@@ -91,7 +96,7 @@ export const conversationalAssistantFlow = ai.defineFlow(
       input.userProfile?.name || 'दोस्त'
     );
 
-    const {stream} = await ai.generate({
+    const {stream} = ai.generate({
       model: 'googleai/gemini-1.5-flash',
       system: personalizedSystemInstruction,
       history: history,

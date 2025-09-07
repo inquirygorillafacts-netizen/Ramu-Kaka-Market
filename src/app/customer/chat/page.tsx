@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 import { useChatHistory } from '@/hooks/use-chat-history';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { doc, getDoc } from 'firebase/firestore';
-import { ChatMessage, conversationalAssistantFlow } from '@/ai/flows/conversational-assistant';
+import { ChatMessage, conversationalAssistant } from '@/ai/flows/conversational-assistant';
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -68,9 +68,15 @@ export default function ChatPage() {
 
     try {
         let accumulatedResponse = '';
-        const stream = await conversationalAssistantFlow({ chatHistory: currentChatHistory, userProfile: profile });
+        const stream = await conversationalAssistant({ chatHistory: currentChatHistory, userProfile: profile });
 
-        for await (const chunk of stream) {
+        const reader = stream.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
             accumulatedResponse += chunk;
             setStreamingResponse(accumulatedResponse);
         }

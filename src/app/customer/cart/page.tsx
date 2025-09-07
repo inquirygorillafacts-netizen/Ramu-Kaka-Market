@@ -108,7 +108,11 @@ export default function CartPage() {
         const cartItemNames = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
         getCartRecommendations({customerName: profile.name, cartItems: cartItemNames})
             .then(rec => setRecommendation(rec))
-            .catch(err => console.error("AI recommendation error:", err))
+            .catch(err => {
+              console.error("AI recommendation error:", err);
+              // Do not show a toast for this, as it's a non-critical feature.
+              // Just log it for debugging.
+            })
             .finally(() => setLoadingRecommendation(false));
     } else {
         setRecommendation(null);
