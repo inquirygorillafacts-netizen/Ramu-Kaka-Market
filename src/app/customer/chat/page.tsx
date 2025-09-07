@@ -136,6 +136,9 @@ export default function ChatPage() {
         const recentHistory = currentHistory.slice(-20);
         
         const historyForAI = [...recentHistory];
+        if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
+            historyForAI.shift();
+        }
         
         const chat = model.startChat({
             history: historyForAI.map(msg => ({
@@ -304,3 +307,5 @@ export default function ChatPage() {
     </div>
   )
 }
+
+    
