@@ -110,7 +110,7 @@ export default function CartPage() {
         try {
           const apiKey = await getGeminiApiKey();
           if (!apiKey) {
-              throw new Error("API Key could not be fetched.");
+              return; // Silently fail if no key
           }
           const genAI = new GoogleGenerativeAI(apiKey);
           const model = genAI.getGenerativeModel({
