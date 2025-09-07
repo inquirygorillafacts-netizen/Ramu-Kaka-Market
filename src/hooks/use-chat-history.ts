@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { ChatMessage } from '@/lib/types';
 
@@ -28,10 +29,12 @@ export function useChatHistory(storageKey: string) {
     setHistory([...chatHistory, message]);
   }, [chatHistory, setHistory]);
 
-  const clearHistory = useCallback((newHistory?: ChatMessage[]) => {
-    setHistory(newHistory || []);
+  const clearHistory = useCallback(() => {
+    setHistory([]);
   }, [setHistory]);
 
 
-  return { chatHistory, addMessage, clearHistory };
+  return { chatHistory, addMessage, clearHistory, setHistory };
 }
+
+    

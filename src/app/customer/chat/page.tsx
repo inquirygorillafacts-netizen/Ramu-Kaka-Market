@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -60,7 +61,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
-  const { chatHistory, addMessage, clearHistory } = useChatHistory('ramukaka_chat_history');
+  const { chatHistory, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   const [streamingResponse, setStreamingResponse] = useState('');
@@ -92,8 +93,7 @@ export default function ChatPage() {
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
   const handleClearChat = () => {
-    clearHistory();
-    addMessage({ role: 'model', content: 'क्या बात है! आज तो चैटिंग की सफ़ाई चल रही है! 😄' });
+    setHistory([{ role: 'model', content: 'क्या बात है! आज तो चैटिंग की सफ़ाई चल रही है! 😄' }]);
   };
   
   const handleChatSubmit = async (e: React.FormEvent) => {
@@ -101,8 +101,8 @@ export default function ChatPage() {
     if (!chatInput.trim() || isAiResponding) return;
 
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
-    addMessage(userMessage);
-    const currentHistory = [...chatHistory, userMessage];
+    const newHistory = [...chatHistory, userMessage];
+    setHistory(newHistory);
     
     setChatInput('');
     setIsAiResponding(true);
@@ -121,13 +121,13 @@ export default function ChatPage() {
         });
 
         // Limit the history to the last 20 messages to keep the context relevant and payload small.
-        const recentHistory = currentHistory.slice(-20);
+        const recentHistory = newHistory.slice(-20);
 
         const chat = model.startChat({
-            history: recentHistory.map(msg => ({
+            history: recentHistory.length > 1 ? recentHistory.slice(0, -1).map(msg => ({
                 role: msg.role,
                 parts: [{ text: msg.content }]
-            })),
+            })) : [],
             generationConfig: {
                 maxOutputTokens: 2048,
             },
@@ -161,7 +161,7 @@ export default function ChatPage() {
         }
 
         if (accumulatedResponse) {
-          addMessage({ role: 'model', content: accumulatedResponse });
+          setHistory([...newHistory, { role: 'model', content: accumulatedResponse }]);
         }
         setStreamingResponse('');
 
@@ -169,7 +169,7 @@ export default function ChatPage() {
         console.error("AI Error:", error);
         toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
         // Remove the user message that caused the error
-        clearHistory(currentHistory.slice(0, currentHistory.length - 1));
+        setHistory(newHistory.slice(0, newHistory.length - 1));
     } finally {
         setIsAiResponding(false);
     }
@@ -283,3 +283,5 @@ export default function ChatPage() {
     </div>
   )
 }
+
+    
