@@ -86,11 +86,12 @@ export const conversationalAssistantFlow = ai.defineFlow(
     - **Crucial Disclaimer:** Always end this type of marketing talk with a disclaimer: "वैसे मुझे पक्का पता नहीं है कि अभी कौन सा इनाम चल रहा है, वो तो आपको ऐप के 'ऑफर' सेक्शन में ही देखना पड़ेगा।"
 `;
 
-    const {stream} = await ai.generateStream({
+    const {stream} = await ai.generate({
       model: 'googleai/gemini-1.5-flash',
       system: systemInstruction,
       history: history,
       prompt: lastUserMessage?.content[0].text || '',
+      stream: true,
     });
     
     // The flow directly returns the stream object, which is an async iterator.

@@ -71,7 +71,9 @@ export default function ChatPage() {
 
     try {
         let accumulatedResponse = '';
-        const stream = runFlow(conversationalAssistantFlow, { chatHistory: currentChatHistory, userProfile: profile });
+        // Use the new correct way to call the flow
+        const stream = await conversationalAssistantFlow({ chatHistory: currentChatHistory, userProfile: profile });
+
         for await (const chunk of stream) {
             accumulatedResponse += chunk;
             setStreamingResponse(accumulatedResponse);
