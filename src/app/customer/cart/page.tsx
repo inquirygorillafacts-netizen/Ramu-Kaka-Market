@@ -407,9 +407,9 @@ Provide the output in a JSON object with two keys: "greeting" and "recommendatio
             <Card className="bg-card p-4 rounded-xl shadow-sm border min-h-[64px] flex items-center">
                 <CardContent className="p-0 w-full">
                     {loadingRecommendation ? (
-                        <div className="flex items-center gap-3 text-muted-foreground text-sm">
-                            <Loader2 className="w-4 h-4 animate-spin"/>
-                            <span>रामू काका आपकी टोकरी देख रहे हैं...</span>
+                        <div className="space-y-2">
+                           <div className="w-full h-4 rounded bg-muted animate-shimmer bg-[length:200%_100%]"></div>
+                           <div className="w-2/3 h-4 rounded bg-muted animate-shimmer bg-[length:200%_100%]"></div>
                         </div>
                     ) : recommendation ? (
                          <div className="text-sm text-foreground space-y-2">
