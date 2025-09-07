@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile } from '@/lib/types';
-import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2 } from 'lucide-react';
+import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2, MessageSquare } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -64,11 +64,15 @@ export default function ChatPage() {
   const { toast } = useToast();
   const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [clearedMessage, setClearedMessage] = useState<string | null>(null);
   
   // Use a ref to hold the most current chat history for the async AI call
   const historyRef = useRef(chatHistory);
   useEffect(() => {
     historyRef.current = chatHistory;
+    if (chatHistory.length > 0) {
+      setClearedMessage(null); // Clear the default message if history is populated
+    }
   }, [chatHistory]);
 
   const [streamingResponse, setStreamingResponse] = useState('');
@@ -95,12 +99,13 @@ export default function ChatPage() {
     if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatHistory, streamingResponse]);
+  }, [chatHistory, streamingResponse, clearedMessage]);
 
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
   const handleClearChat = () => {
-    setHistory([{ role: 'model', content: 'स्माइल प्लीज 😄' }]);
+    setHistory([]);
+    setClearedMessage("स्माइल प्लीज 😄");
   };
   
   const handleChatSubmit = async (e: React.FormEvent) => {
@@ -131,10 +136,7 @@ export default function ChatPage() {
         const recentHistory = currentHistory.slice(-20);
         
         const historyForAI = [...recentHistory];
-        if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
-            historyForAI.shift(); 
-        }
-
+        
         const chat = model.startChat({
             history: historyForAI.map(msg => ({
                 role: msg.role,
@@ -238,6 +240,13 @@ export default function ChatPage() {
         </header>
 
         <main ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6">
+            {chatHistory.length === 0 && clearedMessage && (
+               <div className="flex justify-center">
+                 <div className="max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm bg-card text-foreground rounded-bl-none text-center">
+                    <p className="text-sm whitespace-pre-wrap">{clearedMessage}</p>
+                 </div>
+               </div>
+            )}
             {chatHistory.map((msg, index) => (
                 <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {msg.role === 'model' && (

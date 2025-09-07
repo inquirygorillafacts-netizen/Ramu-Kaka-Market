@@ -11,11 +11,11 @@ export function useChatHistory(storageKey: string) {
       if (storedHistory) {
         setChatHistory(JSON.parse(storedHistory));
       } else {
-        setChatHistory([{ role: 'model', content: 'स्माइल प्लीज 😄' }]);
+        setChatHistory([]); // Start with an empty history
       }
     } catch (error) {
       console.error("Failed to load chat history from localStorage", error);
-      setChatHistory([{ role: 'model', content: 'स्माइल प्लीज 😄' }]);
+      setChatHistory([]);
     }
   }, [storageKey]);
 
@@ -29,11 +29,13 @@ export function useChatHistory(storageKey: string) {
   }, [storageKey]);
 
   const addMessage = useCallback((message: ChatMessage) => {
+    // Use a functional update to ensure we're always working with the latest state
     setChatHistory(prevHistory => {
         const updatedHistory = [...prevHistory, message];
         try {
             localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
         } catch (error) {
+            // If storing fails, we don't want to crash the app, but log the error
             console.error("Failed to save chat history to localStorage", error);
         }
         return updatedHistory;
