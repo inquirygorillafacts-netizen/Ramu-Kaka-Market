@@ -102,7 +102,7 @@ export default function ChatPage() {
     if (!chatInput.trim() || isAiResponding) return;
 
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
-    const newHistory = addMessage(userMessage);
+    addMessage(userMessage);
     
     setChatInput('');
     setIsAiResponding(true);
@@ -120,10 +120,10 @@ export default function ChatPage() {
             systemInstruction: systemInstruction
         });
         
-        const recentHistory = newHistory.slice(-20);
+        const recentHistory = chatHistory.slice(-20);
         
         // This is the crucial fix. Ensure history sent to AI never starts with a 'model' role.
-        const historyForAI = [...recentHistory];
+        const historyForAI = [...recentHistory, userMessage];
         if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
             historyForAI.shift(); // Remove the initial model message if it's the first in the buffer.
         }
@@ -156,7 +156,7 @@ export default function ChatPage() {
             ]
         });
         
-        const lastMessage = newHistory[newHistory.length - 1].content;
+        const lastMessage = chatInput;
         const result = await chat.sendMessageStream(lastMessage);
         
         let accumulatedResponse = '';
@@ -174,8 +174,8 @@ export default function ChatPage() {
     } catch (error: any) {
         console.error("AI Error:", error);
         toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
-        // Remove the user message that caused the error
-        setHistory(newHistory.slice(0, newHistory.length - 1));
+        // Revert to the history before the user message that caused the error
+        setHistory(chatHistory);
     } finally {
         setIsAiResponding(false);
     }
