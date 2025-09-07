@@ -8,12 +8,8 @@
  * The logic has been moved to the client-side in `src/app/customer/cart/page.tsx`
  * as per the user's request. This file is kept for historical purposes but will be removed.
  *
- * - getCartRecommendations - A function that handles the recommendation process.
- * - GetCartRecommendationsInput - The input type for the getCartRecommendations function.
- * - GetCartRecommendationsOutput - The return type for the getCartRecommendations function.
  */
 
-import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 
 const GetCartRecommendationsInputSchema = z.object({
@@ -42,3 +38,5 @@ export async function getCartRecommendations(
   // This is a deprecated flow.
   throw new Error("This AI flow is deprecated and should not be called.");
 }
+
+    

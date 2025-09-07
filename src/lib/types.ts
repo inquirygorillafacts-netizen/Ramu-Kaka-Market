@@ -59,4 +59,9 @@ export interface UserProfile {
     mapLng?: string;
   }
 
+export interface ChatMessage {
+  role: 'user' | 'model';
+  content: string;
+}
+
     

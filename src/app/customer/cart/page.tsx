@@ -27,25 +27,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import Link from 'next/link';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getGeminiApiKey } from '@/lib/gemini';
 
 declare const Razorpay: any;
-
-// WARNING: This is highly insecure. The API key is exposed to the client.
-// This should be replaced with a secure server-side implementation as soon as possible.
-async function getApiKey() {
-  try {
-    const configDocRef = doc(db, 'secure_configs', 'api_keys');
-    const docSnap = await getDoc(configDocRef);
-    if (docSnap.exists() && docSnap.data().gemini_key) {
-      return docSnap.data().gemini_key;
-    } else {
-      throw new Error('Gemini API key not found in Firestore.');
-    }
-  } catch (error) {
-    console.error("Error fetching API key:", error);
-    return null;
-  }
-}
 
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -124,7 +108,7 @@ export default function CartPage() {
       if (cart.length > 0 && profile.name) {
         setLoadingRecommendation(true);
         try {
-          const apiKey = await getApiKey();
+          const apiKey = await getGeminiApiKey();
           if (!apiKey) {
               throw new Error("API Key could not be fetched.");
           }
@@ -601,3 +585,5 @@ Provide the output in a JSON object with two keys: "greeting" and "recommendatio
   );
 
 }
+
+    

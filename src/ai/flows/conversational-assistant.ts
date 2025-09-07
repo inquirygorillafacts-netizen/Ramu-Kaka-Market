@@ -8,11 +8,7 @@
  * The logic has been moved to the client-side in `src/app/customer/chat/page.tsx`
  * as per the user's request. This file is kept for historical purposes but will be removed.
  *
- * - conversationalAssistant - The main function to interact with the assistant.
- * - ChatMessage - The type for a single message in the chat history.
- * - ConversationalAssistantInput - The input type for the chat function.
  */
-
 import { z } from 'zod';
 import { UserProfile } from '@/lib/types';
 
@@ -22,7 +18,6 @@ const ChatMessageSchema = z.object({
   role: z.enum(['user', 'model']),
   content: z.string(),
 });
-export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
 const ConversationalAssistantInputSchema = z.object({
   chatHistory: z
@@ -38,3 +33,5 @@ export async function conversationalAssistant(input: ConversationalAssistantInpu
     // This is a deprecated flow.
     throw new Error("This AI flow is deprecated and should not be called.");
 }
+
+    

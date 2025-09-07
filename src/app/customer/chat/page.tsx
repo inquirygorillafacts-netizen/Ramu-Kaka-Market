@@ -13,8 +13,9 @@ import { useRouter } from 'next/navigation';
 import { useChatHistory } from '@/hooks/use-chat-history';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { doc, getDoc } from 'firebase/firestore';
-import { ChatMessage } from '@/ai/flows/conversational-assistant';
+import { ChatMessage } from '@/lib/types';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { getGeminiApiKey } from '@/lib/gemini';
 
 const systemInstruction = `You are 'Ramu Kaka', a wise, friendly, and unique AI assistant for "Ramu Kaka Market".
 
@@ -53,20 +54,6 @@ const systemInstruction = `You are 'Ramu Kaka', a wise, friendly, and unique AI 
     - **Crucial Disclaimer:** Always end this type of marketing talk with a disclaimer: "वैसे मुझे पक्का पता नहीं है कि अभी कौन सा इनाम चल रहा है, वो तो आपको ऐप के 'ऑफर' सेक्शन में ही देखना पड़ेगा।"
 `;
 
-async function getApiKey() {
-  try {
-    const configDocRef = doc(db, 'secure_configs', 'api_keys');
-    const docSnap = await getDoc(configDocRef);
-    if (docSnap.exists() && docSnap.data().gemini_key) {
-      return docSnap.data().gemini_key;
-    } else {
-      throw new Error('Gemini API key not found in Firestore.');
-    }
-  } catch (error) {
-    console.error("Error fetching API key:", error);
-    return null;
-  }
-}
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -119,7 +106,7 @@ export default function ChatPage() {
     setStreamingResponse('');
 
     try {
-        const apiKey = await getApiKey();
+        const apiKey = await getGeminiApiKey();
         if (!apiKey) {
             throw new Error("API Key not found or could not be fetched.");
         }
@@ -269,3 +256,5 @@ export default function ChatPage() {
     </div>
   )
 }
+
+    
