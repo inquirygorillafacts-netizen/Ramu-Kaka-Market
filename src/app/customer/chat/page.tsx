@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -64,6 +65,12 @@ export default function ChatPage() {
   const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
+  // Use a ref to hold the most current chat history for the async AI call
+  const historyRef = useRef(chatHistory);
+  useEffect(() => {
+    historyRef.current = chatHistory;
+  }, [chatHistory]);
+
   const [streamingResponse, setStreamingResponse] = useState('');
 
   useEffect(() => {
@@ -100,13 +107,10 @@ export default function ChatPage() {
     e.preventDefault();
     if (!chatInput.trim() || isAiResponding) return;
 
-    const userMessage: ChatMessage = { role: 'user', content: chatInput };
-    addMessage(userMessage);
-    
-    // We pass the *new* history to the AI, so we need to get it after the state update.
-    const newHistory = [...chatHistory, userMessage];
-
+    const userMessageContent = chatInput;
+    addMessage({ role: 'user', content: userMessageContent });
     setChatInput('');
+
     setIsAiResponding(true);
     setStreamingResponse('');
 
@@ -122,12 +126,13 @@ export default function ChatPage() {
             systemInstruction: systemInstruction
         });
         
-        const recentHistory = newHistory.slice(-20);
+        // Use the ref to get the most up-to-date history
+        const currentHistory = historyRef.current;
+        const recentHistory = currentHistory.slice(-20);
         
-        // This is the crucial fix. Ensure history sent to AI never starts with a 'model' role.
         const historyForAI = [...recentHistory];
         if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
-            historyForAI.shift(); // Remove the initial model message if it's the first in the buffer.
+            historyForAI.shift(); 
         }
 
         const chat = model.startChat({
@@ -158,7 +163,7 @@ export default function ChatPage() {
             ]
         });
         
-        const lastMessage = chatInput;
+        const lastMessage = userMessageContent;
         const result = await chat.sendMessageStream(lastMessage);
         
         let accumulatedResponse = '';
@@ -176,6 +181,7 @@ export default function ChatPage() {
     } catch (error: any) {
         console.error("AI Error:", error);
         toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
+        addMessage({ role: 'model', content: 'माफ़ करना, मेरा दिमाग थोड़ा गरम हो गया है। आप थोड़ी देर बाद फिर से प्रयास करें।' });
     } finally {
         setIsAiResponding(false);
     }

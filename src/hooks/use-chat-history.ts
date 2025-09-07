@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { ChatMessage } from '@/lib/types';
 
@@ -19,8 +20,8 @@ export function useChatHistory(storageKey: string) {
   }, [storageKey]);
 
   const setHistory = useCallback((newHistory: ChatMessage[]) => {
-    setChatHistory(newHistory);
     try {
+      setChatHistory(newHistory);
       localStorage.setItem(storageKey, JSON.stringify(newHistory));
     } catch (error) {
       console.error("Failed to save chat history to localStorage", error);
@@ -28,9 +29,16 @@ export function useChatHistory(storageKey: string) {
   }, [storageKey]);
 
   const addMessage = useCallback((message: ChatMessage) => {
-    const updatedHistory = [...chatHistory, message];
-    setHistory(updatedHistory);
-  }, [chatHistory, setHistory]);
+    setChatHistory(prevHistory => {
+        const updatedHistory = [...prevHistory, message];
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
+        } catch (error) {
+            console.error("Failed to save chat history to localStorage", error);
+        }
+        return updatedHistory;
+    });
+  }, [storageKey]);
 
 
   return { chatHistory, addMessage, setHistory };
