@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { ChatMessage } from '@/lib/types';
 
@@ -17,19 +16,15 @@ export function useChatHistory(storageKey: string) {
   }, [storageKey]);
 
   const addMessage = useCallback((message: ChatMessage): ChatMessage[] => {
-    let newHistory: ChatMessage[] = [];
-    setChatHistory(prevHistory => {
-        const updatedHistory = [...prevHistory, message];
-        try {
-            localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
-        } catch (error) {
-            console.error("Failed to save chat history to localStorage", error);
-        }
-        newHistory = updatedHistory;
-        return updatedHistory;
-    });
+    const newHistory = [...chatHistory, message];
+    setChatHistory(newHistory);
+     try {
+        localStorage.setItem(storageKey, JSON.stringify(newHistory));
+    } catch (error) {
+        console.error("Failed to save chat history to localStorage", error);
+    }
     return newHistory;
-  }, [storageKey]);
+  }, [storageKey, chatHistory]);
 
   const updateLastMessage = useCallback((textChunk: string) => {
     setChatHistory(prevHistory => {
@@ -48,16 +43,6 @@ export function useChatHistory(storageKey: string) {
     });
   }, [storageKey]);
   
-  const clearHistory = useCallback((initialMessage?: ChatMessage) => {
-    const newHistory = initialMessage ? [initialMessage] : [];
-    setChatHistory(newHistory);
-    try {
-        localStorage.setItem(storageKey, JSON.stringify(newHistory));
-    } catch (error) {
-        console.error("Failed to clear/reset chat history in localStorage", error);
-    }
-  }, [storageKey]);
-
   const setHistory = useCallback((setter: (prevHistory: ChatMessage[]) => ChatMessage[]) => {
       setChatHistory(prevHistory => {
           const newHistory = setter(prevHistory);
@@ -71,5 +56,5 @@ export function useChatHistory(storageKey: string) {
   }, [storageKey]);
 
 
-  return { chatHistory, addMessage, updateLastMessage, clearHistory, setHistory };
+  return { chatHistory, addMessage, updateLastMessage, setHistory };
 }
