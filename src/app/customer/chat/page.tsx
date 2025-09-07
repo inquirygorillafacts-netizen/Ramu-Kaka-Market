@@ -14,8 +14,6 @@ import { useChatHistory } from '@/hooks/use-chat-history';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { doc, getDoc } from 'firebase/firestore';
 import { ChatMessage, conversationalAssistantFlow } from '@/ai/flows/conversational-assistant';
-import { runFlow } from '@genkit-ai/next/client';
-
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -25,7 +23,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
-  const { chatHistory, addMessage, setHistory, updateLastMessage } = useChatHistory('ramukaka_chat_history');
+  const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   const [streamingResponse, setStreamingResponse] = useState('');
@@ -61,17 +59,15 @@ export default function ChatPage() {
     if (!chatInput.trim() || isAiResponding) return;
 
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
+    const currentChatHistory = [...chatHistory, userMessage];
     addMessage(userMessage);
     
-    const currentChatHistory = [...chatHistory, userMessage];
-
     setChatInput('');
     setIsAiResponding(true);
     setStreamingResponse('');
 
     try {
         let accumulatedResponse = '';
-        // Use the new correct way to call the flow
         const stream = await conversationalAssistantFlow({ chatHistory: currentChatHistory, userProfile: profile });
 
         for await (const chunk of stream) {
@@ -79,8 +75,11 @@ export default function ChatPage() {
             setStreamingResponse(accumulatedResponse);
         }
 
-        addMessage({ role: 'model', content: accumulatedResponse });
+        if (accumulatedResponse) {
+          addMessage({ role: 'model', content: accumulatedResponse });
+        }
         setStreamingResponse('');
+
     } catch (error: any) {
         console.error("AI Error:", error);
         toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
@@ -146,6 +145,16 @@ export default function ChatPage() {
                     </div>
                      <div className="max-w-xs md:max-w-md p-3 rounded-2xl bg-card text-foreground rounded-bl-none shadow-sm flex items-center">
                         <p className="text-sm whitespace-pre-wrap">{streamingResponse}</p>
+                    </div>
+                </div>
+             )}
+             {isAiResponding && !streamingResponse && (
+                <div className="flex justify-start items-end gap-2">
+                     <div className="p-1.5 bg-primary/10 rounded-full mb-1">
+                        <BrainCircuit className="w-6 h-6 text-primary"/>
+                    </div>
+                     <div className="max-w-xs md:max-w-md p-3 rounded-2xl bg-card text-foreground rounded-bl-none shadow-sm flex items-center">
+                        <Loader2 className="w-5 h-5 animate-spin"/>
                     </div>
                 </div>
              )}

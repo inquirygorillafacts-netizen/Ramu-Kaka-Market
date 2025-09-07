@@ -69,7 +69,10 @@ const getCartRecommendationsFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await getCartRecsPrompt(input);
-    return output!;
+    if (!output) {
+      throw new Error("Failed to get recommendation from AI.");
+    }
+    return output;
   }
 );
 
@@ -77,5 +80,5 @@ const getCartRecommendationsFlow = ai.defineFlow(
 export async function getCartRecommendations(
   input: GetCartRecommendationsInput
 ): Promise<GetCartRecommendationsOutput> {
-  return getCartRecommendationsFlow(input);
+  return await getCartRecommendationsFlow(input);
 }

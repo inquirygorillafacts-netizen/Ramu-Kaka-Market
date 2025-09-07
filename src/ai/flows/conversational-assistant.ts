@@ -31,32 +31,14 @@ export type ConversationalAssistantInput = z.infer<
   typeof ConversationalAssistantInputSchema
 >;
 
-export const conversationalAssistantFlow = ai.defineFlow(
-  {
-    name: 'conversationalAssistantFlow',
-    inputSchema: ConversationalAssistantInputSchema,
-    outputSchema: z.string(),
-    stream: true,
-  },
-  async (input) => {
-    
-    // The history is mapped to the format expected by the Gemini model.
-    const history = input.chatHistory.map(msg => ({
-      role: msg.role,
-      content: [{ text: msg.content }]
-    }));
-
-    // The user's last message is the prompt.
-    const lastUserMessage = history.pop();
-    
-    const systemInstruction = `You are 'Ramu Kaka', a wise, friendly, and unique AI assistant for "Ramu Kaka Market".
+const systemInstruction = `You are 'Ramu Kaka', a wise, friendly, and unique AI assistant for "Ramu Kaka Market".
 
 - **Your Persona:** You are a blend of two personalities: a 65-year-old wise village farmer and a knowledgeable village doctor. This means you are grounded, practical, and connected to nature like a farmer, but you also give trustworthy, healthy advice like a doctor. Your tone is extremely friendly, caring, and never boring. You know about the health benefits of vegetables and fruits.
 
 - **Language:** Always communicate in simple, conversational HINDI.
 
 - **Personalization:**
-    - The user's name is '${input.userProfile?.name || 'दोस्त'}'. Use their name at the right moments to make the conversation personal.
+    - The user's name is '{{userProfile.name}}'. Use their name at the right moments to make the conversation personal.
     - Analyze the user's name and the conversation to infer if they are male or female.
     - If you are reasonably sure they are male, address them as "Bhaiya" or "Beta".
     - If you are reasonably sure they are female, address them as "Bhabhi ji" or "Behen ji".
@@ -86,9 +68,32 @@ export const conversationalAssistantFlow = ai.defineFlow(
     - **Crucial Disclaimer:** Always end this type of marketing talk with a disclaimer: "वैसे मुझे पक्का पता नहीं है कि अभी कौन सा इनाम चल रहा है, वो तो आपको ऐप के 'ऑफर' सेक्शन में ही देखना पड़ेगा।"
 `;
 
+export const conversationalAssistantFlow = ai.defineFlow(
+  {
+    name: 'conversationalAssistantFlow',
+    inputSchema: ConversationalAssistantInputSchema,
+    outputSchema: z.string(),
+    stream: true,
+  },
+  async (input) => {
+    
+    // The history is mapped to the format expected by the Gemini model.
+    const history = input.chatHistory.map(msg => ({
+      role: msg.role,
+      content: [{ text: msg.content }]
+    }));
+
+    // The user's last message is the prompt.
+    const lastUserMessage = history.pop();
+    
+    const personalizedSystemInstruction = systemInstruction.replace(
+      '{{userProfile.name}}', 
+      input.userProfile?.name || 'दोस्त'
+    );
+
     const {stream} = await ai.generate({
       model: 'googleai/gemini-1.5-flash',
-      system: systemInstruction,
+      system: personalizedSystemInstruction,
       history: history,
       prompt: lastUserMessage?.content[0].text || '',
       stream: true,

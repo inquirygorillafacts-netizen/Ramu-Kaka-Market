@@ -32,21 +32,19 @@ async function getApiKeys(): Promise<{ gemini_key: string, razorpay_key_id: stri
                 razorpay_key_id: data.razorpay_key_id || '',
                 razorpay_key_secret: data.razorpay_key_secret || '',
             };
+            // Set a timeout to clear the cache after some time to refetch keys, e.g., 1 hour
+            setTimeout(() => { keyCache = null; }, 3600 * 1000);
+
             return keyCache;
 
         } else {
             console.warn("API key document not found in Firestore.");
+            throw new Error('API key document not found.');
         }
     } catch (error) {
         console.error("Error fetching API keys from Firestore:", error);
+        throw new Error('Could not retrieve API Key.');
     }
-    
-    // Return empty strings as a fallback if keys aren't found.
-    return {
-        gemini_key: "",
-        razorpay_key_id: '',
-        razorpay_key_secret: '',
-    };
 }
 
 // Initialize Genkit with plugins and the dynamic API key.
@@ -57,7 +55,4 @@ export const ai = genkit({
       apiKey: async () => (await getApiKeys()).gemini_key,
     }),
   ],
-  // This model definition is not strictly necessary here but can be a good default.
-  // Flows will specify their own models.
-  model: 'googleai/gemini-1.5-flash-latest', 
 });
