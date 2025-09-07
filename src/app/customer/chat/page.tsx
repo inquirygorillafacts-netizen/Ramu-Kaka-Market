@@ -114,8 +114,8 @@ export default function ChatPage() {
             systemInstruction: systemInstruction
         });
 
-        // Limit the history to the last 10 messages to keep the context relevant and payload small.
-        const recentHistory = currentHistory.slice(-10);
+        // Limit the history to the last 20 messages to keep the context relevant and payload small.
+        const recentHistory = currentHistory.slice(-20);
 
         const chat = model.startChat({
             history: recentHistory.map(msg => ({
