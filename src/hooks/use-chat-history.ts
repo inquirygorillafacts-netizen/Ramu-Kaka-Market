@@ -48,12 +48,13 @@ export function useChatHistory(storageKey: string) {
     });
   }, [storageKey]);
   
-  const clearHistory = useCallback(() => {
-    setChatHistory([]);
+  const clearHistory = useCallback((initialMessage?: ChatMessage) => {
+    const newHistory = initialMessage ? [initialMessage] : [];
+    setChatHistory(newHistory);
     try {
-        localStorage.removeItem(storageKey);
+        localStorage.setItem(storageKey, JSON.stringify(newHistory));
     } catch (error) {
-        console.error("Failed to clear chat history from localStorage", error);
+        console.error("Failed to clear/reset chat history in localStorage", error);
     }
   }, [storageKey]);
 

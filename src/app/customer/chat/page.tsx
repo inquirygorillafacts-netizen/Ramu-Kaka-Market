@@ -93,8 +93,7 @@ export default function ChatPage() {
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
   const handleClearChat = () => {
-    clearHistory();
-    addMessage({ role: 'model', content: 'क्या बात है! आज तो चैटिंग की सफ़ाई चल रही है! 😄' });
+    clearHistory({ role: 'model', content: 'क्या बात है! आज तो चैटिंग की सफ़ाई चल रही है! 😄' });
   };
   
   const handleChatSubmit = async (e: React.FormEvent) => {
@@ -283,5 +282,3 @@ export default function ChatPage() {
     </div>
   )
 }
-
-    
