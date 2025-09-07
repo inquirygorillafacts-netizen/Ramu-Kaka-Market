@@ -15,46 +15,23 @@ export function useChatHistory(storageKey: string) {
     }
   }, [storageKey]);
 
-  const addMessage = useCallback((message: ChatMessage): ChatMessage[] => {
-    const newHistory = [...chatHistory, message];
+  const setHistory = useCallback((newHistory: ChatMessage[]) => {
     setChatHistory(newHistory);
-     try {
-        localStorage.setItem(storageKey, JSON.stringify(newHistory));
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(newHistory));
     } catch (error) {
-        console.error("Failed to save chat history to localStorage", error);
+      console.error("Failed to save chat history to localStorage", error);
     }
-    return newHistory;
-  }, [storageKey, chatHistory]);
-
-  const updateLastMessage = useCallback((textChunk: string) => {
-    setChatHistory(prevHistory => {
-        const updatedHistory = [...prevHistory];
-        const lastMessage = updatedHistory[updatedHistory.length - 1];
-
-        if (lastMessage && lastMessage.role === 'model') {
-            lastMessage.content += textChunk;
-            try {
-                localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
-            } catch (error) {
-                 console.error("Failed to update chat history in localStorage", error);
-            }
-        }
-        return updatedHistory;
-    });
-  }, [storageKey]);
-  
-  const setHistory = useCallback((setter: (prevHistory: ChatMessage[]) => ChatMessage[]) => {
-      setChatHistory(prevHistory => {
-          const newHistory = setter(prevHistory);
-           try {
-                localStorage.setItem(storageKey, JSON.stringify(newHistory));
-            } catch (error) {
-                 console.error("Failed to update chat history in localStorage", error);
-            }
-            return newHistory;
-      })
   }, [storageKey]);
 
+  const addMessage = useCallback((message: ChatMessage) => {
+    setHistory([...chatHistory, message]);
+  }, [chatHistory, setHistory]);
 
-  return { chatHistory, addMessage, updateLastMessage, setHistory };
+  const clearHistory = useCallback((newHistory?: ChatMessage[]) => {
+    setHistory(newHistory || []);
+  }, [setHistory]);
+
+
+  return { chatHistory, addMessage, clearHistory };
 }

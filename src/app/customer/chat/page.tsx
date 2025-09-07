@@ -60,7 +60,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
-  const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
+  const { chatHistory, addMessage, clearHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   const [streamingResponse, setStreamingResponse] = useState('');
@@ -92,7 +92,8 @@ export default function ChatPage() {
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
   const handleClearChat = () => {
-    setHistory(() => [{ role: 'model', content: 'क्या बात है! आज तो चैटिंग की सफ़ाई चल रही है! 😄' }]);
+    clearHistory();
+    addMessage({ role: 'model', content: 'क्या बात है! आज तो चैटिंग की सफ़ाई चल रही है! 😄' });
   };
   
   const handleChatSubmit = async (e: React.FormEvent) => {
@@ -100,7 +101,8 @@ export default function ChatPage() {
     if (!chatInput.trim() || isAiResponding) return;
 
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
-    const currentHistory = addMessage(userMessage);
+    addMessage(userMessage);
+    const currentHistory = [...chatHistory, userMessage];
     
     setChatInput('');
     setIsAiResponding(true);
@@ -167,7 +169,7 @@ export default function ChatPage() {
         console.error("AI Error:", error);
         toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
         // Remove the user message that caused the error
-        setHistory(prev => prev.slice(0, prev.length - 1));
+        clearHistory(currentHistory.slice(0, currentHistory.length - 1));
     } finally {
         setIsAiResponding(false);
     }
