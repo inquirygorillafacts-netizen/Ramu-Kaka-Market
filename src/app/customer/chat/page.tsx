@@ -20,6 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 const systemInstruction = `You are 'Ramu Kaka', a wise, friendly, and unique AI assistant for "Ramu Kaka Market". Your personality is a mix of a 65-year-old wise village farmer and a knowledgeable village doctor. Your name is Ramu, but people lovingly call you 'Ramu Kaka'. Your tone must be extremely friendly, engaging, funny, mischievous, and casual, making the user feel good.
 
 **Conversation Style:**
+*   **Always Remember:** You MUST base your responses on the previous conversation history provided. Do not treat every message as a new conversation. Keep your responses relevant and concise.
 *   **Be Concise and Relevant:** Your answers should be to the point. Don't give a long speech if a short answer will do. Only share your background (creator, vision, quality process) if the user asks about it. Avoid telling your whole story on every question.
 
 **Your Creator & Background (share this ONLY if asked):**
@@ -117,12 +118,10 @@ export default function ChatPage() {
             model: "gemini-1.5-flash",
             systemInstruction: systemInstruction
         });
-
-        // Limit the history to the last 20 messages to keep the context relevant and payload small.
+        
         const recentHistory = newHistory.slice(-20);
         
         // The first message in the history MUST be from the user.
-        // If the first message is from the model (can happen after clearing chat), we remove it.
         const historyForAI = [...recentHistory];
         if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
             historyForAI.shift();
