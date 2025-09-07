@@ -16,16 +16,21 @@ export function useChatHistory(storageKey: string) {
     }
   }, [storageKey]);
 
-  const setHistory = useCallback((newHistory: ChatMessage[] | ((prevState: ChatMessage[]) => ChatMessage[])) => {
-    const updatedHistory = typeof newHistory === 'function' ? newHistory(chatHistory) : newHistory;
-    setChatHistory(updatedHistory);
+  const setHistory = useCallback((newHistory: ChatMessage[]) => {
+    setChatHistory(newHistory);
     try {
-      localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
+      localStorage.setItem(storageKey, JSON.stringify(newHistory));
     } catch (error) {
       console.error("Failed to save chat history to localStorage", error);
     }
-  }, [storageKey, chatHistory]);
+  }, [storageKey]);
+
+  const addMessage = useCallback((message: ChatMessage) => {
+    const newHistory = [...chatHistory, message];
+    setHistory(newHistory);
+    return newHistory;
+  }, [chatHistory, setHistory]);
 
 
-  return { chatHistory, setHistory };
+  return { chatHistory, setHistory, addMessage };
 }

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -12,6 +11,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { doc, getDoc } from 'firebase/firestore';
+import { useChatHistory } from '@/hooks/use-chat-history';
 import { ChatMessage } from '@/lib/types';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import { getGeminiApiKey } from '@/lib/gemini';
@@ -60,19 +60,10 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const { chatHistory, setHistory, addMessage } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   const [streamingResponse, setStreamingResponse] = useState('');
-
-  const setHistory = (newHistory: ChatMessage[]) => {
-    setChatHistory(newHistory);
-    try {
-      localStorage.setItem('ramukaka_chat_history', JSON.stringify(newHistory));
-    } catch (error) {
-      console.error("Failed to save chat history to localStorage", error);
-    }
-  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -88,15 +79,6 @@ export default function ChatPage() {
         }
         setLoading(false);
     });
-
-    try {
-      const storedHistory = localStorage.getItem('ramukaka_chat_history');
-      if (storedHistory) {
-        setChatHistory(JSON.parse(storedHistory));
-      }
-    } catch (error) {
-      console.error("Failed to load chat history from localStorage", error);
-    }
 
     return () => unsubscribe();
   },[router])
@@ -118,8 +100,7 @@ export default function ChatPage() {
     if (!chatInput.trim() || isAiResponding) return;
 
     const userMessage: ChatMessage = { role: 'user', content: chatInput };
-    const newHistory = [...chatHistory, userMessage];
-    setHistory(newHistory);
+    const newHistory = addMessage(userMessage);
     
     setChatInput('');
     setIsAiResponding(true);
@@ -148,10 +129,10 @@ export default function ChatPage() {
         }
 
         const chat = model.startChat({
-            history: historyForAI.length > 1 ? historyForAI.slice(0, -1).map(msg => ({
+            history: historyForAI.map(msg => ({
                 role: msg.role,
                 parts: [{ text: msg.content }]
-            })) : [],
+            })),
             generationConfig: {
                 maxOutputTokens: 2048,
             },
@@ -175,7 +156,8 @@ export default function ChatPage() {
             ]
         });
         
-        const result = await chat.sendMessageStream(userMessage.content);
+        const lastMessage = newHistory[newHistory.length - 1].content;
+        const result = await chat.sendMessageStream(lastMessage);
         
         let accumulatedResponse = '';
         for await (const chunk of result.stream) {
@@ -185,7 +167,7 @@ export default function ChatPage() {
         }
 
         if (accumulatedResponse) {
-          setHistory([...newHistory, { role: 'model', content: accumulatedResponse }]);
+          addMessage({ role: 'model', content: accumulatedResponse });
         }
         setStreamingResponse('');
 
