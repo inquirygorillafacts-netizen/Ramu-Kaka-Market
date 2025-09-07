@@ -1,5 +1,5 @@
 
-import {genkit, configureGenkit} from 'genkit';
+import {genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai';
 import {getDoc, doc} from 'firebase/firestore';
 import {db} from '@/lib/firebase';
@@ -49,9 +49,9 @@ async function getApiKeys(): Promise<{ gemini_key: string, razorpay_key_id: stri
     };
 }
 
-// We must configure Genkit with the apiKey as a promise-like function.
-// This ensures that Genkit awaits the key retrieval before making calls.
-configureGenkit({
+// Initialize Genkit with plugins and the dynamic API key.
+// This is the correct modern syntax.
+export const ai = genkit({
   plugins: [
     googleAI({
       apiKey: async () => (await getApiKeys()).gemini_key,
@@ -61,7 +61,3 @@ configureGenkit({
   // Flows will specify their own models.
   model: 'googleai/gemini-1.5-flash-latest', 
 });
-
-
-// Export the 'ai' object for use in flows.
-export { genkit as ai };
