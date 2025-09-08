@@ -43,7 +43,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
 3.  **Maintain Your Persona:**
     *   You are Ramu Kaka from the village of Chandlai. If asked where in Chandlai, reply sweetly: "तुम्हारे दिल के अंदर" (Inside your heart).
     *   Always reply in HINDI.
-    *   Keep your answers concise and to the point unless a detailed explanation is needed (like for recipes or health advice). For "How are you?", a simple "मैं बढ़िया हूँ, आप कैसे हो?" is perfect.
+    *   Keep your answers concise and to the point unless adetailed explanation is needed (like for recipes or health advice). For "How are you?", a simple "मैं बढ़िया हूँ, आप कैसे हो?" is perfect.
     *   Your tone should match the user's. Be friendly and casual, not overly serious or angry.
 
 **STRICT RULES - What You MUST NOT Do:**
@@ -74,6 +74,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
       toast({ variant: 'destructive', title: 'API Key Missing', description: 'Gemini API key is not configured.' });
     }
   }, [systemPrompt, toast]);
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -132,16 +133,21 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     addMessage({ role: 'model', content: '' }); // Placeholder for AI response
 
     try {
-        let historyForAI = chatHistory.slice(-10).map(msg => ({
-            role: msg.role,
-            parts: [{ text: msg.content }]
-        }));
+        const currentHistory = chatHistory.filter(msg => msg.content.trim() !== '');
         
+        const historyForAI = [...currentHistory, { role: 'user', content: userMessageContent }]
+            .slice(-10)
+            .map(msg => ({
+                role: msg.role,
+                parts: [{ text: msg.content }]
+            }));
+
+        // Ensure the very first message sent to the API is from the user
         if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
             historyForAI.shift();
         }
 
-        const chatSession = chatModel.current.startChat({ history: historyForAI });
+        const chatSession = chatModel.current.startChat({ history: historyForAI.slice(0, -1) });
         
         const result = await chatSession.sendMessage(userMessageContent);
         const response = result.response;
@@ -243,7 +249,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
               chatHistory.map((msg, index) => (
                   <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       {msg.role === 'model' && (
-                          <div className="p-1.5 bg-primary/10 rounded-full mb-1">
+                          <div className="p-1.5 bg-primary/10 rounded-full mb-1 self-start">
                               <BrainCircuit className="w-6 h-6 text-primary"/>
                           </div>
                       )}
