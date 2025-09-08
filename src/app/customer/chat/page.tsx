@@ -15,8 +15,6 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useChatHistory } from '@/hooks/use-chat-history';
 import ReactMarkdown from 'react-markdown';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Card, CardContent } from '@/components/ui/card';
-
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -119,22 +117,21 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
   }
   
   const handleChatSubmit = async () => {
-    if (!chatInput.trim() || !chatModel.current) return;
+    if (!chatInput.trim() || isAiResponding || !chatModel.current) return;
 
     const userMessageContent = chatInput;
+    addMessage({ role: 'user', content: userMessageContent });
     setChatInput('');
     setIsAiResponding(true);
-
-    addMessage({ role: 'user', content: userMessageContent });
     addMessage({ role: 'model', content: '' });
 
     try {
         let historyForAI: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
+        
+        // Use functional update to get the latest history
         setHistory(currentHistory => {
-            const newHistoryWithUserMessage = [...currentHistory];
-
-            historyForAI = newHistoryWithUserMessage
-                .filter(msg => msg.content !== '') // Exclude empty placeholder for history
+            historyForAI = currentHistory
+                .filter(msg => msg.content) // Exclude empty placeholder for history
                 .map(msg => ({
                     role: msg.role as 'user' | 'model',
                     parts: [{ text: msg.content }]
@@ -144,7 +141,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
             if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
                 historyForAI = historyForAI.slice(1);
             }
-            return currentHistory;
+            return currentHistory; // No change to state here
         });
 
         const chatSession = chatModel.current.startChat({ history: historyForAI.slice(0, -1) });
@@ -171,8 +168,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
 
     } catch (error: any) {
         console.error("AI Error:", error);
-
-        // This block now handles errors gracefully
+        
         setHistory(prev => prev.slice(0, -1)); // Remove only the AI's empty placeholder
         
         if (error.message?.includes("503") || error.message?.includes("overloaded")) {
@@ -221,40 +217,32 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         </header>
 
         <main ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6">
-          {chatHistory.length === 0 ? (
-            <div className="text-center py-8 flex flex-col items-center animate-fade-in-up h-full justify-center text-muted-foreground">
-                <MessageSquare className="w-16 h-16 mb-4 opacity-50"/>
-                <h2 className="text-lg font-semibold">यह चैट खाली है</h2>
-                <p>रामू काका से कुछ पूछ कर बातचीत शुरू करें!</p>
-            </div>
-          ) : (
-            chatHistory.map((msg, index) => (
-            <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {msg.role === 'model' && (
-                    <div className="p-1.5 bg-primary/10 rounded-full mb-1 self-start">
-                        <BrainCircuit className="w-6 h-6 text-primary"/>
+            {chatHistory.map((msg, index) => (
+                <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    {msg.role === 'model' && (
+                        <div className="p-1.5 bg-primary/10 rounded-full mb-1 self-start">
+                            <BrainCircuit className="w-6 h-6 text-primary"/>
+                        </div>
+                    )}
+                    <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
+                      {isAiResponding && msg.role === 'model' && msg.content === '' && index === chatHistory.length - 1 ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                          <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                          <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
+                        </div>
+                      ) : (
+                        <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
+                      )}
                     </div>
-                )}
-                <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
-                  {isAiResponding && msg.role === 'model' && msg.content === '' && index === chatHistory.length - 1 ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                      <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                      <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
-                    </div>
-                  ) : (
-                    <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
-                  )}
+                    {msg.role === 'user' && (
+                        <Avatar className="w-9 h-9 mb-1">
+                            <AvatarImage src={profile.photoUrl || ''} />
+                            <AvatarFallback>{getInitials(profile.name || '')}</AvatarFallback>
+                        </Avatar>
+                    )}
                 </div>
-                {msg.role === 'user' && (
-                    <Avatar className="w-9 h-9 mb-1">
-                        <AvatarImage src={profile.photoUrl || ''} />
-                        <AvatarFallback>{getInitials(profile.name || '')}</AvatarFallback>
-                    </Avatar>
-                )}
-            </div>
-            ))
-          )}
+            ))}
         </main>
 
         <footer className="p-3 border-t bg-card space-y-2">
