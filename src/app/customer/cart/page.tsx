@@ -25,6 +25,9 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import Link from 'next/link';
+import { runFlow } from '@genkit-ai/next/client';
+import { getCartRecommendations } from '@/ai/flows/get-cart-recommendations';
+
 
 declare const Razorpay: any;
 
@@ -41,6 +44,8 @@ export default function CartPage() {
   const [isCodConfirmOpen, setIsCodConfirmOpen] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const [recommendation, setRecommendation] = useState('');
+  const [loadingRecommendation, setLoadingRecommendation] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -99,6 +104,18 @@ export default function CartPage() {
   useEffect(() => {
       loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (cart.length > 0) {
+      setLoadingRecommendation(true);
+      runFlow(getCartRecommendations, { userProfile: profile, cart })
+        .then(setRecommendation)
+        .catch(err => console.error("Could not get recommendations", err))
+        .finally(() => setLoadingRecommendation(false));
+    } else {
+      setRecommendation('');
+    }
+  }, [cart, profile]);
 
 
   const updateCart = (newCart: CartItem[]) => {
@@ -325,6 +342,24 @@ export default function CartPage() {
                     </div>
                 ))}
             </div>
+
+            {(loadingRecommendation || recommendation) && (
+              <Card className="bg-primary/5 border-primary/20">
+                <CardHeader className="p-4">
+                    <div className="flex items-start gap-3">
+                        <Lightbulb className="w-5 h-5 mt-1 text-yellow-500" />
+                        <div>
+                            <h3 className="font-semibold text-primary">रामू काका का सुझाव</h3>
+                            {loadingRecommendation ? (
+                              <p className="text-sm text-muted-foreground italic mt-1">रामू काका सोच रहे हैं...</p>
+                            ) : (
+                              <p className="text-sm text-muted-foreground mt-1">{recommendation}</p>
+                            )}
+                        </div>
+                    </div>
+                </CardHeader>
+              </Card>
+            )}
             
             <Button variant="outline" className="w-full" asChild>
                 <Link href="/customer/chat">

@@ -16,6 +16,7 @@
 
 import {genkit, type GenkitErrorCode, type GenkitError} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai';
+import {googleCloud} from '@genkit-ai/google-cloud';
 import {dotprompt} from '@genkit-ai/dotprompt';
 import {doc, getDoc} from 'firebase/firestore';
 import {db} from '@/lib/firebase';
@@ -59,6 +60,7 @@ export async function getGeminiApiKey(): Promise<string | null> {
 
 export const ai = genkit({
   plugins: [
+    googleCloud(),
     googleAI({
       apiKey: getGeminiApiKey,
     }),
@@ -75,7 +77,7 @@ export const ai = genkit({
       async flush() {},
     },
   ],
-  // flowStateStore: 'firebase',
-  // traceStore: 'firebase',
+  flowStateStore: 'firebase',
+  traceStore: 'firebase',
   enableTracingAndMetrics: true,
 });
