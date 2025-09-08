@@ -65,7 +65,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         if (apiKey) {
           genAI.current = new GoogleGenerativeAI(apiKey);
           model.current = genAI.current.getGenerativeModel({
-            model: 'gemini-1.5-pro-latest', // Upgraded to a more powerful model
+            model: 'gemini-1.5-flash-latest', 
           });
           setIsModelReady(true);
         } else {
