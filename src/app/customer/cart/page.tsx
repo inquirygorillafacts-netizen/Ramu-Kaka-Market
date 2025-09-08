@@ -250,14 +250,14 @@ export default function CartPage() {
     if (!currentUser) return;
     setPlacingOrder(true);
     try {
-        const keyResponse = await fetch('/api/get-razorpay-key');
+        const keyResponse = await fetch('/api/razorpay/key');
         const { keyId } = await keyResponse.json();
 
         if (!keyId) {
             throw new Error('Could not fetch Razorpay key.');
         }
 
-        const response = await fetch('/api/razorpay', {
+        const response = await fetch('/api/razorpay/order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ amount: getCartTotal() * 100 })
@@ -614,3 +614,5 @@ export default function CartPage() {
     </div>
   );
 }
+
+    
