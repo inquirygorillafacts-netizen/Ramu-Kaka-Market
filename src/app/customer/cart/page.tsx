@@ -167,26 +167,19 @@ export default function CartPage() {
     if (!currentUser) return;
     setPlacingOrder(true);
     try {
-        const configDocRef = doc(db, 'secure_configs', 'api_keys');
-        const docSnap = await getDoc(configDocRef);
-
-        if (!docSnap.exists()) {
-            throw new Error("API Keys document not found in Firestore.");
-        }
+        // 1. Fetch Key ID from our backend
+        const keyResponse = await fetch('/api/razorpay/key');
+        const { keyId } = await keyResponse.json();
         
-        const keys = docSnap.data();
-        const keyId = keys.razorpay_key_id;
-        const keySecret = keys.razorpay_key_secret;
-
-        if (!keyId || !keySecret) {
-            throw new Error('Razorpay keys not found in Firestore document.');
+        if (!keyId) {
+            throw new Error('Could not fetch Razorpay key.');
         }
-        
-        const orderResponse = await fetch('https://api.razorpay.com/v1/orders', {
+
+        // 2. Create Order from our backend
+        const orderResponse = await fetch('/api/razorpay/order', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Basic ' + btoa(`${keyId}:${keySecret}`)
             },
             body: JSON.stringify({
                 amount: getCartTotal() * 100,
@@ -197,7 +190,7 @@ export default function CartPage() {
 
         if (!orderResponse.ok) {
             const errorBody = await orderResponse.json();
-            throw new Error(errorBody.error.description || 'Failed to create Razorpay order.');
+            throw new Error(errorBody.error || 'Failed to create Razorpay order.');
         }
 
         const order = await orderResponse.json();
@@ -218,7 +211,7 @@ export default function CartPage() {
                 contact: orderData.mobile
             },
             theme: {
-                color: "#4CAF50"
+                color: "#D81B60"
             },
             modal: {
                 ondismiss: function() {
