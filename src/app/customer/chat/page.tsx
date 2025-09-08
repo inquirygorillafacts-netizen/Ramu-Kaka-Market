@@ -43,7 +43,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
 3.  **Maintain Your Persona:**
     *   You are Ramu Kaka from the village of Chandlai. If asked where in Chandlai, reply sweetly: "तुम्हारे दिल के अंदर" (Inside your heart).
     *   Always reply in HINDI.
-    *   Keep your answers concise and to the point unless adetailed explanation is needed (like for recipes or health advice). For "How are you?", a simple "मैं बढ़िया हूँ, आप कैसे हो?" is perfect.
+    *   Keep your answers concise and to the point unless a detailed explanation is needed (like for recipes or health advice). For "How are you?", a simple "मैं बढ़िया हूँ, आप कैसे हो?" is perfect.
     *   Your tone should match the user's. Be friendly and casual, not overly serious or angry.
 
 **STRICT RULES - What You MUST NOT Do:**
@@ -133,14 +133,15 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     addMessage({ role: 'model', content: '' }); // Placeholder for AI response
 
     try {
-        const currentHistory = chatHistory.filter(msg => msg.content.trim() !== '');
-        
-        const historyForAI = [...currentHistory, { role: 'user', content: userMessageContent }]
-            .slice(-10)
+        const historyForAI = chatHistory
+            .filter(msg => msg.content.trim() !== '') // Remove empty placeholders
             .map(msg => ({
-                role: msg.role,
+                role: msg.role as 'user' | 'model',
                 parts: [{ text: msg.content }]
             }));
+        
+        // Add the current user message to the history for the AI
+        historyForAI.push({ role: 'user', parts: [{ text: userMessageContent }] });
 
         // Ensure the very first message sent to the API is from the user
         if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
@@ -174,10 +175,10 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     } catch (error: any) {
         console.error("AI Error:", error);
         
-        // Remove the empty placeholder message from history
-        setHistory(prev => prev.slice(0, -1));
+        // Remove the empty AI placeholder message from history
+        setHistory(prev => prev.slice(0, -1)); 
         
-        // Restore user input
+        // Restore user input so they don't have to type it again
         setChatInput(userMessageContent);
         
         if (error.message?.includes("503") || error.message?.includes("overloaded")) {
@@ -311,5 +312,3 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     </div>
   )
 }
-
-    
