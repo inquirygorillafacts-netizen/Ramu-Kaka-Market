@@ -60,7 +60,7 @@ export async function getGeminiApiKey(): Promise<string | null> {
 
 export const ai = genkit({
   plugins: [
-    googleCloud(),
+    googleCloud,
     googleAI({
       apiKey: getGeminiApiKey,
     }),
