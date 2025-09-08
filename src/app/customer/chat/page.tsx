@@ -138,7 +138,6 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     addMessage({ role: 'user', content: userMessageContent });
     setChatInput('');
     setIsAiResponding(true);
-    addMessage({ role: 'model', content: '...' }); // Placeholder for AI response
 
     try {
         let historyForAI = chatHistory.slice(-10).map(msg => ({
@@ -146,8 +145,6 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
             parts: [{ text: msg.content }]
         }));
 
-        // The API requires the history to start with a "user" role.
-        // If the first message in our history is from the "model", we remove it.
         if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
             historyForAI.shift();
         }
@@ -158,14 +155,8 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         const response = result.response;
         const responseText = response.text();
         
-        setHistory(prev => {
-            const newHistory = [...prev];
-            const lastMessage = newHistory[newHistory.length - 1];
-            if (lastMessage && lastMessage.role === 'model' && lastMessage.content === '...') {
-                lastMessage.content = ''; // Clear placeholder
-            }
-            return newHistory;
-        });
+        // Add a new empty message for the AI response
+        addMessage({ role: 'model', content: '' });
 
         let i = 0;
         typingIntervalRef.current = setInterval(() => {
@@ -188,14 +179,6 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     } catch (error: any) {
         console.error("AI Error:", error);
         toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue. Please try again later.' });
-        setHistory(prev => {
-          const newHistory = [...prev];
-          const lastMessage = newHistory[newHistory.length - 1];
-          if (lastMessage && lastMessage.role === 'model') {
-            newHistory.pop(); // Remove placeholder on error
-          }
-          return newHistory;
-        });
         addMessage({ role: 'model', content: 'माफ़ करना बेटा, मेरा दिमाग थोड़ा गरम हो गया है। आप थोड़ी देर बाद फिर से प्रयास करें।' });
         setIsAiResponding(false);
     }
@@ -280,6 +263,20 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                      )}
                 </div>
             ))}
+             {isAiResponding && chatHistory[chatHistory.length - 1]?.role !== 'model' && (
+                 <div className={`flex items-end gap-2 justify-start`}>
+                    <div className="p-1.5 bg-primary/10 rounded-full mb-1">
+                        <BrainCircuit className="w-6 h-6 text-primary"/>
+                    </div>
+                    <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm bg-card text-foreground rounded-bl-none`}>
+                        <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                        <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                        <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
 
         <footer className="p-3 border-t bg-card space-y-2">
