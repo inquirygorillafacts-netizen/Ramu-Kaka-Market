@@ -6,14 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile } from '@/lib/types';
-import { Loader2, Send, BrainCircuit, ArrowLeft, Square } from 'lucide-react';
+import { Loader2, Send, BrainCircuit, ArrowLeft, Square, MessageSquare } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { doc, getDoc } from 'firebase/firestore';
 import { useChatHistory } from '@/hooks/use-chat-history';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Card, CardContent } from '@/components/ui/card';
@@ -126,19 +125,27 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     setChatInput('');
     setIsAiResponding(true);
 
-    const newHistoryWithUserMessage = [...chatHistory, { role: 'user' as 'user', content: userMessageContent }];
     addMessage({ role: 'user', content: userMessageContent });
     addMessage({ role: 'model', content: '' });
 
     try {
-        let historyForAI = newHistoryWithUserMessage.map(msg => ({
-            role: msg.role as 'user' | 'model',
-            parts: [{ text: msg.content }]
-        }));
+        let historyForAI: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
+        setHistory(currentHistory => {
+            const newHistoryWithUserMessage = [...currentHistory];
 
-        if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
-            historyForAI = historyForAI.slice(1);
-        }
+            historyForAI = newHistoryWithUserMessage
+                .filter(msg => msg.content !== '') // Exclude empty placeholder for history
+                .map(msg => ({
+                    role: msg.role as 'user' | 'model',
+                    parts: [{ text: msg.content }]
+                }));
+
+            // Ensure history starts with a user message for the API
+            if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
+                historyForAI = historyForAI.slice(1);
+            }
+            return currentHistory;
+        });
 
         const chatSession = chatModel.current.startChat({ history: historyForAI.slice(0, -1) });
         const result = await chatSession.sendMessage(userMessageContent);
@@ -164,8 +171,9 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
 
     } catch (error: any) {
         console.error("AI Error:", error);
-        
-        setHistory(prev => prev.slice(0, -1));
+
+        // This block now handles errors gracefully
+        setHistory(prev => prev.slice(0, -1)); // Remove only the AI's empty placeholder
         
         if (error.message?.includes("503") || error.message?.includes("overloaded")) {
              toast({ variant: 'destructive', title: 'AI Busy', description: "रामू काका अभी बहुत व्यस्त हैं, कृपया कुछ क्षण बाद फिर से प्रयास करें।" });
@@ -173,8 +181,8 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
             toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue.' });
         }
         
-        setChatInput(userMessageContent);
-        setIsAiResponding(false);
+        setChatInput(userMessageContent); // Restore user's input
+        setIsAiResponding(false); // Reset responding state
     }
   }
 
@@ -213,7 +221,14 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         </header>
 
         <main ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6">
-          {chatHistory.map((msg, index) => (
+          {chatHistory.length === 0 ? (
+            <div className="text-center py-8 flex flex-col items-center animate-fade-in-up h-full justify-center text-muted-foreground">
+                <MessageSquare className="w-16 h-16 mb-4 opacity-50"/>
+                <h2 className="text-lg font-semibold">यह चैट खाली है</h2>
+                <p>रामू काका से कुछ पूछ कर बातचीत शुरू करें!</p>
+            </div>
+          ) : (
+            chatHistory.map((msg, index) => (
             <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'model' && (
                     <div className="p-1.5 bg-primary/10 rounded-full mb-1 self-start">
@@ -238,7 +253,8 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                     </Avatar>
                 )}
             </div>
-          ))}
+            ))
+          )}
         </main>
 
         <footer className="p-3 border-t bg-card space-y-2">
