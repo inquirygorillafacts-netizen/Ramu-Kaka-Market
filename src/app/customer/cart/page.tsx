@@ -25,6 +25,8 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import Link from 'next/link';
+import { runFlow } from '@genkit-ai/next/client';
+import { getCartRecommendations } from '@/ai/flows/get-cart-recommendations';
 
 declare const Razorpay: any;
 
@@ -56,34 +58,18 @@ export default function CartPage() {
     setRecommendation('');
 
     try {
-        const productsSnapshot = await getDocs(collection(db, 'products'));
-        const allProducts: Product[] = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        const availableProductNames = allProducts.map(p => p.name).join(', ');
-
-        const prompt = `नमस्ते, मैं रामू काका हूँ। ${userProfile.name || 'ग्राहक'} जी, आपने अपनी टोकरी में ये सामान डाले हैं: ${currentCart.map(item => `${item.name} (मात्रा: ${item.quantity})`).join(', ')}। हमारी दुकान में अभी ये सब उपलब्ध है: ${availableProductNames}. आप एक अनुभवी, इंसानी दुकानदार की तरह सोचें। ग्राहक को ऐसी चीज़ सुझाएं जो उनकी टोकरी के सामान के साथ अच्छी लगे और उपयोगी हो। सिर्फ़ कुछ भी न बेचें, बल्कि एक अच्छी और तार्किक 'जोड़ी' बनाएँ (जैसे पालक के साथ पनीर)। सुझाव केवल उपलब्ध उत्पादों में से ही देना। आपका जवाब हमेशा हिंदी में और बहुत ही दोस्ताना होना चाहिए।`;
-        
-        const response = await fetch('/api/flows/get-cart-recommendations', {
-            method: 'POST',
-            body: JSON.stringify({
-              userProfile: profile,
-              cart: currentCart,
-              prompt: prompt,
-            }),
-          });
-
-        if (!response.ok) {
-            throw new Error(`AI API request failed with status ${response.status}`);
-        }
-        const result = await response.json();
+        const result = await runFlow(getCartRecommendations, {
+            userProfile: userProfile,
+            cart: currentCart,
+        });
         setRecommendation(result);
-
     } catch (error) {
         console.error("Error fetching AI recommendation:", error);
         // Do not show error toast to user, fail silently
     } finally {
         setIsAiThinking(false);
     }
-  }, [profile]);
+  }, []);
 
 
   useEffect(() => {
