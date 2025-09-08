@@ -16,15 +16,14 @@ import { useChatHistory } from '@/hooks/use-chat-history';
 import { ChatMessage } from '@/lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, FunctionDeclaration, Tool, GenerationConfig, GenerativeModel, Content, FunctionCallingMode } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, GenerationConfig, GenerativeModel, Content } from '@google/generative-ai';
 import { getGeminiApiKey } from '@/lib/gemini';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // --- Client-side AI Tools ---
 
-// 1. Find Products Tool
-const findProducts = async (args: { query: string }): Promise<any> => {
-    console.log(`[findProducts tool] called with query: "${args.query}"`);
+const findProducts = async (queryStr: string): Promise<any> => {
+    console.log(`[findProducts tool] called with query: "${queryStr}"`);
     const productsRef = collection(db, 'products');
     const q = query(productsRef);
     const querySnapshot = await getDocs(q);
@@ -32,14 +31,12 @@ const findProducts = async (args: { query: string }): Promise<any> => {
       (doc) => ({...doc.data(), id: doc.id} as Product)
     );
     
-    // If the query is empty or very generic, list categories instead.
-    if (!args.query || args.query.trim().length < 2) {
+    if (!queryStr || queryStr.trim().length < 2) {
       const categories = [...new Set(allProducts.map(p => p.category))];
-      return { result: `We have items in these categories: ${categories.join(', ')}. What are you looking for?` };
+      return `We have items in these categories: ${categories.join(', ')}. What are you looking for?`;
     }
 
-    // Simple search: check if product name or keywords include the query term.
-    const lowerCaseQuery = args.query.toLowerCase();
+    const lowerCaseQuery = queryStr.toLowerCase();
     const searchTerms = lowerCaseQuery.split(' ').filter(term => term.length > 1);
 
     const matchedProducts = allProducts.filter(product => {
@@ -52,16 +49,15 @@ const findProducts = async (args: { query: string }): Promise<any> => {
             (category && category.includes(term)) ||
             keywords.some(kw => kw.includes(term))
         );
-    }).slice(0, 5); // Return top 5 matches
+    }).slice(0, 5);
 
     console.log(`[findProducts tool] found ${matchedProducts.length} products.`);
 
     if (matchedProducts.length === 0) {
-        return { result: "No products found matching that query." };
+        return "No products found matching that query.";
     }
-
-    // Return a simplified object for the AI to process
-    return { result: matchedProducts.map(p => ({
+    
+    const simplifiedResult = matchedProducts.map(p => ({
         id: p.id,
         name: p.name,
         price: p.price,
@@ -69,14 +65,15 @@ const findProducts = async (args: { query: string }): Promise<any> => {
         unit: p.unit,
         unitQuantity: p.unitQuantity,
         category: p.category,
-    }))};
+    }));
+
+    return `Here is what I found: ${JSON.stringify(simplifiedResult)}`;
 };
 
-// 2. Add to Cart Tool
-const addToCart = async (args: { products: { productId: string, quantity: number }[] }): Promise<any> => {
-    console.log(`[addToCart tool] called with:`, args);
-    if (!args.products || args.products.length === 0) {
-      return { result: { success: false, message: "No products provided to add." } };
+const addToCart = async (products: { productId: string, quantity: number }[]): Promise<any> => {
+    console.log(`[addToCart tool] called with:`, products);
+    if (!products || products.length === 0) {
+      return "You didn't tell me what to add.";
     }
 
     try {
@@ -88,7 +85,7 @@ const addToCart = async (args: { products: { productId: string, quantity: number
         let itemsAdded = 0;
         let itemsUpdated = 0;
         
-        for (const p of args.products) {
+        for (const p of products) {
           const productDetails = allProducts.find(dbP => dbP.id === p.productId);
           if (!productDetails) continue;
 
@@ -103,60 +100,13 @@ const addToCart = async (args: { products: { productId: string, quantity: number
         }
 
         localStorage.setItem('ramukaka_cart', JSON.stringify(cart));
-        return { result: {
-            success: true,
-            message: `Successfully added ${itemsAdded} new item(s) and updated ${itemsUpdated} item(s) in the cart.`
-        }};
+        return `Successfully added ${itemsAdded} new item(s) and updated ${itemsUpdated} item(s) in your tokri.`;
     } catch (e) {
       console.error("addToCart tool error:", e);
-      return { result: { success: false, message: 'Failed to add items to cart.' } };
+      return 'Sorry, I had trouble adding that to your tokri.';
     }
 };
 
-const tools: Tool[] = [
-    {
-        functionDeclarations: [
-            {
-                name: "findProducts",
-                description: "Searches the store's inventory for products based on a user's query. Use this to check for product availability, price, details, or when the user mentions any grocery item, fruit, or vegetable.",
-                parameters: {
-                    type: "OBJECT",
-                    properties: {
-                        query: { type: "STRING", description: "The user's search query for a product (e.g., 'onions', 'milk', 'fresh vegetables'). If the user asks what you have, you can pass an empty string." }
-                    },
-                    required: ["query"]
-                }
-            },
-            {
-                name: "addToCart",
-                description: "Adds one or more products with specified quantities to the user's shopping cart (tokri). Use this when the user explicitly asks to add item(s) to their cart.",
-                parameters: {
-                    type: "OBJECT",
-                    properties: {
-                        products: { 
-                            type: "ARRAY",
-                            description: "An array of product objects to add to the cart.",
-                            items: {
-                                type: "OBJECT",
-                                properties: {
-                                    productId: { type: "STRING", description: "The unique ID of the product." },
-                                    quantity: { type: "NUMBER", description: "The quantity of the product to add." }
-                                },
-                                required: ["productId", "quantity"]
-                            }
-                        }
-                    },
-                    required: ["products"]
-                }
-            }
-        ]
-    }
-];
-
-const functionCallHandlers: Record<string, Function> = {
-    findProducts,
-    addToCart
-};
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -177,22 +127,27 @@ export default function ChatPage() {
 
 Your primary goals are:
 1.  **Be a Helpful Assistant:** Answer questions about products, provide recipes, give nutritional advice, and suggest meal ideas.
-2.  **Be a Salesperson:** Gently encourage users to buy products by using your tools correctly and effectively.
+2.  **Be a Salesperson:** Gently encourage users to buy products.
 3.  **Be a Friend:** Maintain your persona. Be respectful, address users politely (e.g., "beta," "dost"), and engage in friendly conversation.
 
-**VERY IMPORTANT - Tool Usage Rules:**
+**VERY IMPORTANT - How to Use Your Tools:**
 
-*   **Rule 1: Use \`findProducts\` for Product Queries.**
-    *   **WHEN TO USE:** You **MUST** use the \`findProducts\` tool whenever the user asks about a product, its price, or its availability. This includes direct questions ("Do you have apples?"), price checks ("What's the price of milk?"), and general inquiries ("What vegetables do you have?").
-    *   **YOUR ACTION:** When you decide to use this tool, you must **ONLY return the function call object.** Do not add any other text. First, add a message to the chat like "एक मिनट बेटा, देख कर बताता हूँ..." to inform the user you are checking. Then, the system will execute the function and provide you with the results. You will then formulate a friendly response based on those results.
+You have tools to check for products and add them to the cart. Instead of calling them directly, you must respond with a special text command. The system will see this command and run the tool for you.
 
-*   **Rule 2: Use \`addToCart\` for Adding Items to the Cart.**
-    *   **WHEN TO USE:** You **MUST** use the \`addToCart\` tool **ONLY** when the user gives a clear instruction to add an item to their cart ("tokri"). Examples: "add 2kg of potatoes," "put one milk packet in the tokri," "buy this."
-    *   **YOUR ACTION:** You need a \`productId\` to add an item. If you don't have it, use \`findProducts\` first to get product details. Confirm with the user before adding. Like the previous rule, when you decide to call this tool, **ONLY return the function call object**.
+*   **Rule 1: To Find Products.**
+    *   **WHEN:** If the user asks about ANY product, its price, or its availability (e.g., "Do you have apples?", "What's the price of milk?", "aloo hai?", "show me some vegetables").
+    *   **HOW:** You MUST respond with **ONLY** the following format: \`[TOOL:findProducts:QUERY]\` where QUERY is the item the user asked for.
+    *   **Example 1:** User says "do you have tomatoes". You respond with: \`[TOOL:findProducts:tomatoes]\`
+    *   **Example 2:** User says "what vegetables do you have". You respond with: \`[TOOL:findProducts:vegetables]\`
 
-*   **Rule 3: DO NOT Use Tools for General Conversation.**
-    *   **WHEN NOT TO USE:** For general chat ("how are you?"), recipes ("how to make paneer butter masala?"), nutritional advice, or meal suggestions ("what should I cook today?"), you **MUST NOT** use any tools.
-    *   **HOW TO RESPOND:** Answer these questions from your own knowledge. You are an expert cook and have knowledge about health. Be confident and helpful. For recipes, provide clear, step-by-step instructions.
+*   **Rule 2: To Add Items to the Cart.**
+    *   **WHEN:** When the user gives a clear instruction to add item(s) to their cart ("tokri"). Examples: "add 2kg of potatoes," "put one milk packet in the tokri," "buy this."
+    *   **HOW:** You MUST respond with **ONLY** the following format: \`[TOOL:addToCart:PRODUCT_ID:QUANTITY]\`. You need the \`productId\` from the \`findProducts\` tool first.
+    *   **Example:** User says "add two of those" after you found a product with id "xyz123". You respond with: \`[TOOL:addToCart:xyz123:2]\`
+
+*   **Rule 3: For Everything Else (General Conversation).**
+    *   **WHEN:** For general chat ("how are you?"), recipes ("how to make paneer butter masala?"), nutritional advice, or meal suggestions ("what should I cook today?"), you **MUST NOT** use any tools.
+    *   **HOW:** Answer these questions from your own knowledge. You are an expert cook and have knowledge about health. Be confident and helpful. For recipes, provide clear, step-by-step instructions.
 
 **Your Persona & Language:**
 *   **Humble & Humorous:** "मैं तो बस एक छोटा सा दुकानदार हूँ" (I am just a small shopkeeper).
@@ -210,7 +165,6 @@ Start the conversation by greeting the user if the history is empty.
           genAI.current = new GoogleGenerativeAI(apiKey);
           model.current = genAI.current.getGenerativeModel({
             model: 'gemini-1.5-flash-latest',
-            tools,
             systemInstruction: {
               role: "system",
               parts: [{ text: systemPrompt }]
@@ -226,6 +180,7 @@ Start the conversation by greeting the user if the history is empty.
         setIsModelReady(false);
       }
     };
+    
     initAI();
 
     if (chatHistory.length === 0) {
@@ -266,7 +221,7 @@ Start the conversation by greeting the user if the history is empty.
     addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
   };
   
-  const handleChatSubmit = async (e: React.FormEvent) => {
+ const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || isAiResponding || !model.current) return;
 
@@ -282,55 +237,44 @@ Start the conversation by greeting the user if the history is empty.
                 role: msg.role,
                 parts: [{ text: msg.content }]
             })),
-            toolConfig: { functionCallingConfig: { mode: FunctionCallingMode.AUTO } }
         });
 
         let result = await chat.sendMessage(userMessageContent);
+        let responseText = result.response.text();
         
-        while (true) {
-            const functionCalls = result.response.functionCalls();
-            
-            if (!functionCalls || functionCalls.length === 0) {
-                addMessage({ role: 'model', content: result.response.text() });
-                break;
-            }
-            
-            console.log("AI wants to call functions:", functionCalls);
-            // Show a thinking message to the user
+        // Custom tool-calling logic
+        if (responseText.startsWith('[TOOL:')) {
             addMessage({ role: 'model', content: 'एक मिनट बेटा, देख कर बताता हूँ...' });
             
-            const apiResponses = await Promise.all(
-                functionCalls.map(async (call) => {
-                    const handler = functionCallHandlers[call.name];
-                    if (handler) {
-                        const toolResult = await handler(call.args);
-                        return {
-                            functionResponse: {
-                                name: call.name,
-                                response: toolResult,
-                            },
-                        };
-                    }
-                    return {
-                        functionResponse: {
-                            name: call.name,
-                            response: { error: `Function ${call.name} not found.` },
-                        },
-                    };
-                })
-            );
+            const command = responseText.replace('[TOOL:', '').replace(']', '');
+            const [toolName, ...args] = command.split(':');
             
-            result = await chat.sendMessage(apiResponses);
+            let toolResult = '';
+            if (toolName === 'findProducts') {
+                toolResult = await findProducts(args.join(':'));
+            } else if (toolName === 'addToCart') {
+                const productsToAdd = [{ productId: args[0], quantity: parseInt(args[1], 10) }];
+                toolResult = await addToCart(productsToAdd);
+            }
+
+            // Send the tool result back to the AI to get a natural language response
+            const finalResult = await chat.sendMessage(`Here is the result from the tool: ${toolResult}`);
+            addMessage({ role: 'model', content: finalResult.response.text() });
+            
+        } else {
+            addMessage({ role: 'model', content: responseText });
         }
+
 
     } catch (error: any) {
         console.error("AI Error:", error);
-        toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. Please try again.' });
+        toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue. Please try again later.' });
         addMessage({ role: 'model', content: 'माफ़ करना बेटा, मेरा दिमाग थोड़ा गरम हो गया है। आप थोड़ी देर बाद फिर से प्रयास करें।' });
     } finally {
         setIsAiResponding(false);
     }
   }
+
 
   if (loading) {
     return (
@@ -436,6 +380,4 @@ Start the conversation by greeting the user if the history is empty.
     </div>
   )
 }
-    
-
     
