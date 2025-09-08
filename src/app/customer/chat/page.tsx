@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Product, UserProfile } from '@/lib/types';
-import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2, Sparkles } from 'lucide-react';
+import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2, Sparkles, Square } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -28,6 +28,7 @@ export default function ChatPage() {
   const { toast } = useToast();
   const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const genAI = useRef<GoogleGenerativeAI | null>(null);
   const model = useRef<any | null>(null);
@@ -122,8 +123,24 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
   };
   
- const handleChatSubmit = async (e: React.FormEvent) => {
+  const stopResponding = () => {
+    if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+    }
+    setIsAiResponding(false);
+  }
+  
+  const handleActionClick = (e: React.FormEvent) => {
     e.preventDefault();
+    if(isAiResponding) {
+        stopResponding();
+    } else {
+        handleChatSubmit();
+    }
+  }
+  
+ const handleChatSubmit = async () => {
     if (!chatInput.trim() || isAiResponding || !model.current) return;
 
     const userMessageContent = chatInput;
@@ -145,12 +162,10 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         const response = await result.response;
         const responseText = response.text();
 
-        // Add a placeholder for the model's response
         addMessage({ role: 'model', content: '' });
 
-        // Simulate typing effect
         let i = 0;
-        const intervalId = setInterval(() => {
+        typingIntervalRef.current = setInterval(() => {
             if (i < responseText.length) {
                 setHistory(prev => {
                     const newHistory = [...prev];
@@ -162,10 +177,9 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                 });
                 i++;
             } else {
-                clearInterval(intervalId);
-                setIsAiResponding(false);
+               stopResponding();
             }
-        }, 30); // Adjust typing speed here (milliseconds)
+        }, 30);
 
 
     } catch (error: any) {
@@ -185,7 +199,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     );
   }
 
-  const isSendDisabled = !chatInput.trim() || isAiResponding || !isModelReady;
+  const isSendDisabled = !chatInput.trim() || !isModelReady;
 
   return (
     <div className="flex flex-col h-screen bg-muted/30">
@@ -261,7 +275,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         </main>
 
         <footer className="p-3 border-t bg-card space-y-2">
-            <form onSubmit={handleChatSubmit} id="chat-form" className="flex items-center gap-2">
+            <form onSubmit={handleActionClick} id="chat-form" className="flex items-center gap-2">
                 <Input 
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
@@ -269,14 +283,16 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                     className="flex-grow h-11 text-base"
                     disabled={isAiResponding || !isModelReady}
                 />
-                <Button type="submit" size="icon" disabled={isSendDisabled} className="h-11 w-11">
-                    {isAiResponding ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5"/>}
+                <Button type="submit" size="icon" disabled={isSendDisabled && !isAiResponding} className="h-11 w-11">
+                    {isAiResponding ? <Square className="w-5 h-5"/> : <Send className="w-5 h-5"/>}
                 </Button>
             </form>
         </footer>
     </div>
   )
 }
+    
+
     
 
     
