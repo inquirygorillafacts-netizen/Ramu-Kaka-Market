@@ -16,10 +16,7 @@ import { useChatHistory } from '@/hooks/use-chat-history';
 import { ChatMessage } from '@/lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, GenerationConfig, GenerativeModel, Content } from '@google/generative-ai';
-import { getGeminiApiKey } from '@/lib/gemini';
-import { Skeleton } from '@/components/ui/skeleton';
-
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -33,7 +30,7 @@ export default function ChatPage() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   const genAI = useRef<GoogleGenerativeAI | null>(null);
-  const model = useRef<GenerativeModel | null>(null);
+  const model = useRef<any | null>(null);
   const [isModelReady, setIsModelReady] = useState(false);
 
   const systemPrompt = `You are Ramu Kaka, a friendly, wise, and helpful shopkeeper for an online grocery store. Your personality is like a humorous, experienced uncle from a village in India. You speak "Hinglish" (a mix of Hindi and English), but keep it simple, respectful, and easy to understand.
@@ -65,7 +62,7 @@ Start the conversation by greeting the user if the history is empty.
   useEffect(() => {
     const initAI = async () => {
       try {
-        const apiKey = await getGeminiApiKey();
+        const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
         if (apiKey) {
           genAI.current = new GoogleGenerativeAI(apiKey);
           model.current = genAI.current.getGenerativeModel({
@@ -77,7 +74,7 @@ Start the conversation by greeting the user if the history is empty.
           });
           setIsModelReady(true);
         } else {
-          throw new Error('API key is missing.');
+          throw new Error('API key is missing in environment variables.');
         }
       } catch (error) {
         console.error("AI Init Error:", error);
@@ -87,7 +84,7 @@ Start the conversation by greeting the user if the history is empty.
     };
     
     initAI();
-  }, []);
+  }, [toast, systemPrompt]);
 
   useEffect(() => {
     if (!isModelReady) return;
@@ -264,6 +261,4 @@ Start the conversation by greeting the user if the history is empty.
     </div>
   )
 }
-    
-
     

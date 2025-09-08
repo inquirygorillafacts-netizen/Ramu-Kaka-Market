@@ -2,14 +2,13 @@
 
 import {genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai';
-import {getGeminiApiKey} from '@/lib/gemini';
 import {googleCloud} from '@genkit-ai/google-cloud';
 
 export const ai = genkit({
   plugins: [
     googleCloud(),
     googleAI({
-      apiKey: getGeminiApiKey,
+      apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY,
     }),
   ],
   logLevel: 'debug',
