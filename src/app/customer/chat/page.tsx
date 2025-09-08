@@ -141,28 +141,37 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
             history: limitedHistory,
         });
 
-        const result = await chat.sendMessageStream(userMessageContent);
-        
-        let responseText = '';
-        addMessage({ role: 'model', content: '' }); // Add a placeholder for the streaming response
+        const result = await chat.sendMessage(userMessageContent);
+        const response = await result.response;
+        const responseText = response.text();
 
-        for await (const chunk of result.stream) {
-            const chunkText = chunk.text();
-            responseText += chunkText;
-            setHistory(prev => {
-                const newHistory = [...prev];
-                if (newHistory.length > 0 && newHistory[newHistory.length - 1].role === 'model') {
-                    newHistory[newHistory.length - 1].content = responseText;
-                }
-                return newHistory;
-            });
-        }
+        // Add a placeholder for the model's response
+        addMessage({ role: 'model', content: '' });
+
+        // Simulate typing effect
+        let i = 0;
+        const intervalId = setInterval(() => {
+            if (i < responseText.length) {
+                setHistory(prev => {
+                    const newHistory = [...prev];
+                    const lastMessage = newHistory[newHistory.length - 1];
+                    if (lastMessage && lastMessage.role === 'model') {
+                        lastMessage.content += responseText[i];
+                    }
+                    return newHistory;
+                });
+                i++;
+            } else {
+                clearInterval(intervalId);
+                setIsAiResponding(false);
+            }
+        }, 30); // Adjust typing speed here (milliseconds)
+
 
     } catch (error: any) {
         console.error("AI Error:", error);
         toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue. Please try again later.' });
         addMessage({ role: 'model', content: 'माफ़ करना बेटा, मेरा दिमाग थोड़ा गरम हो गया है। आप थोड़ी देर बाद फिर से प्रयास करें।' });
-    } finally {
         setIsAiResponding(false);
     }
   }
