@@ -245,15 +245,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                         </div>
                     )}
                     <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
-                       {msg.content === '...' ? (
-                         <div className="flex items-center gap-1.5">
-                           <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                           <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                           <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
-                         </div>
-                       ) : (
-                         <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
-                       )}
+                       <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
                     </div>
                      {msg.role === 'user' && (
                         <Avatar className="w-9 h-9 mb-1">
@@ -263,7 +255,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                      )}
                 </div>
             ))}
-             {isAiResponding && chatHistory[chatHistory.length - 1]?.role !== 'model' && (
+             {isAiResponding && chatHistory[chatHistory.length - 1]?.role === 'user' && (
                  <div className={`flex items-end gap-2 justify-start`}>
                     <div className="p-1.5 bg-primary/10 rounded-full mb-1">
                         <BrainCircuit className="w-6 h-6 text-primary"/>
