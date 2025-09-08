@@ -127,16 +127,13 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     if (!chatInput.trim() || !chatModel.current) return;
 
     const userMessageContent = chatInput;
-    const currentChatHistory = [...chatHistory, { role: 'user', content: userMessageContent }];
-
     addMessage({ role: 'user', content: userMessageContent });
     addMessage({ role: 'model', content: '' }); // Placeholder for AI response
     setChatInput('');
     setIsAiResponding(true);
 
     try {
-        const historyForAI = currentChatHistory
-            .filter(msg => msg.content.trim() !== '') // Remove empty placeholders
+        const historyForAI = chatHistory
             .map(msg => ({
                 role: msg.role as 'user' | 'model',
                 parts: [{ text: msg.content }]
@@ -146,7 +143,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
             historyForAI.shift();
         }
 
-        const chatSession = chatModel.current.startChat({ history: historyForAI.slice(0, -1) });
+        const chatSession = chatModel.current.startChat({ history: historyForAI });
         
         const result = await chatSession.sendMessage(userMessageContent);
         const response = result.response;
@@ -173,9 +170,10 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     } catch (error: any) {
         console.error("AI Error:", error);
         
+        // Remove the AI placeholder message
         setHistory(prev => prev.slice(0, -1)); 
-        setHistory(prev => prev.slice(0, -1));
         
+        // Restore user input
         setChatInput(userMessageContent);
         
         if (error.message?.includes("503") || error.message?.includes("overloaded")) {
@@ -310,5 +308,3 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     </div>
   )
 }
-
-    
