@@ -124,8 +124,8 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     // Add user message and AI placeholder immediately
     const newHistoryWithUserAndPlaceholder = [
         ...chatHistory,
-        { role: 'user', content: userMessageContent },
-        { role: 'model', content: '' }
+        { role: 'user' as const, content: userMessageContent },
+        { role: 'model' as const, content: '' }
     ];
     setHistory(newHistoryWithUserAndPlaceholder);
     setChatInput('');
