@@ -154,7 +154,7 @@ export default {
         'draw-line': 'draw-line 1s ease-out forwards',
         'place-item': 'place-item 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
         'place-item-bounce': 'place-item-bounce 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
-        'shimmer': 'shimmer 1.5s infinite linear',
+        'shimmer': 'shimmer 1.5s infinite',
       },
     },
   },

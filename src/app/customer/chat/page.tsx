@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile } from '@/lib/types';
-import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2, MessageSquare } from 'lucide-react';
+import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -15,6 +15,8 @@ import { useChatHistory } from '@/hooks/use-chat-history';
 import { ChatMessage } from '@/lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
+import {runFlow} from '@genkit-ai/next/client';
+import {conversationalAssistant} from '@/ai/flows/conversational-assistant';
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -26,14 +28,10 @@ export default function ChatPage() {
   const { toast } = useToast();
   const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const [clearedMessage, setClearedMessage] = useState<string | null>(null);
   
   const historyRef = useRef(chatHistory);
   useEffect(() => {
     historyRef.current = chatHistory;
-    if (chatHistory.length > 0) {
-      setClearedMessage(null); 
-    }
   }, [chatHistory]);
 
   const [streamingResponse, setStreamingResponse] = useState('');
@@ -60,13 +58,12 @@ export default function ChatPage() {
     if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatHistory, streamingResponse, clearedMessage]);
+  }, [chatHistory, streamingResponse]);
 
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
   const handleClearChat = () => {
     setHistory([]);
-    setClearedMessage("स्माइल प्लीज 😄");
   };
   
   const handleChatSubmit = async (e: React.FormEvent) => {
@@ -74,6 +71,7 @@ export default function ChatPage() {
     if (!chatInput.trim() || isAiResponding) return;
 
     const userMessageContent = chatInput;
+    const newHistory: ChatMessage[] = [...historyRef.current, { role: 'user', content: userMessageContent }];
     addMessage({ role: 'user', content: userMessageContent });
     setChatInput('');
 
@@ -81,8 +79,10 @@ export default function ChatPage() {
     setStreamingResponse('');
 
     try {
-        // AI functionality is temporarily disabled to ensure payment gateway stability.
-        const response = 'माफ़ करना, मेरा दिमाग थोड़ा गरम हो गया है। आप थोड़ी देर बाद फिर से प्रयास करें।';
+        const response = await runFlow(conversationalAssistant, {
+            history: newHistory.map(m => ({...m, role: m.role === 'model' ? 'model' : 'user'})),
+            prompt: userMessageContent,
+          });
         addMessage({ role: 'model', content: response });
 
     } catch (error: any) {
@@ -145,13 +145,6 @@ export default function ChatPage() {
         </header>
 
         <main ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6">
-            {chatHistory.length === 0 && clearedMessage && (
-               <div className="flex justify-center">
-                 <div className="max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm bg-card text-foreground rounded-bl-none text-center">
-                    <p className="text-sm whitespace-pre-wrap">{clearedMessage}</p>
-                 </div>
-               </div>
-            )}
             {chatHistory.map((msg, index) => (
                 <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {msg.role === 'model' && (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Product, CartItem, UserProfile } from '@/lib/types';
@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { addDoc, collection, doc, getDoc, getDocs, query } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, query, collectionGroup } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -42,6 +42,50 @@ export default function CartPage() {
   const { toast } = useToast();
   const router = useRouter();
 
+  const [recommendation, setRecommendation] = useState<string>('');
+  const [isAiThinking, setIsAiThinking] = useState(false);
+
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const fetchRecommendation = useCallback(async (currentCart: CartItem[], userProfile: Partial<UserProfile>) => {
+    if (currentCart.length === 0) {
+        setRecommendation('');
+        return;
+    }
+    setIsAiThinking(true);
+    setRecommendation('');
+
+    try {
+        const productsSnapshot = await getDocs(collection(db, 'products'));
+        const allProducts: Product[] = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        const availableProductNames = allProducts.map(p => p.name).join(', ');
+
+        const prompt = `नमस्ते, मैं रामू काका हूँ। ${userProfile.name || 'ग्राहक'} जी, आपने अपनी टोकरी में ये सामान डाले हैं: ${currentCart.map(item => `${item.name} (मात्रा: ${item.quantity})`).join(', ')}। हमारी दुकान में अभी ये सब उपलब्ध है: ${availableProductNames}. आप एक अनुभवी, इंसानी दुकानदार की तरह सोचें। ग्राहक को ऐसी चीज़ सुझाएं जो उनकी टोकरी के सामान के साथ अच्छी लगे और उपयोगी हो। सिर्फ़ कुछ भी न बेचें, बल्कि एक अच्छी और तार्किक 'जोड़ी' बनाएँ (जैसे पालक के साथ पनीर)। सुझाव केवल उपलब्ध उत्पादों में से ही देना। आपका जवाब हमेशा हिंदी में और बहुत ही दोस्ताना होना चाहिए।`;
+        
+        const response = await fetch('/api/flows/get-cart-recommendations', {
+            method: 'POST',
+            body: JSON.stringify({
+              userProfile: profile,
+              cart: currentCart,
+              prompt: prompt,
+            }),
+          });
+
+        if (!response.ok) {
+            throw new Error(`AI API request failed with status ${response.status}`);
+        }
+        const result = await response.json();
+        setRecommendation(result);
+
+    } catch (error) {
+        console.error("Error fetching AI recommendation:", error);
+        // Do not show error toast to user, fail silently
+    } finally {
+        setIsAiThinking(false);
+    }
+  }, [profile]);
+
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
         if (user) {
@@ -53,54 +97,68 @@ export default function CartPage() {
     return () => unsubscribe();
   },[router])
 
-  useEffect(() => {
-    const loadData = async () => {
-        const savedCart = localStorage.getItem('ramukaka_cart');
-        const parsedCart = savedCart ? JSON.parse(savedCart) : [];
-        setCart(parsedCart);
-        
-        const savedProfile = localStorage.getItem('ramukaka_profile');
-        const localProfile: Partial<UserProfile> = savedProfile ? JSON.parse(savedProfile) : {};
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    const savedCart = localStorage.getItem('ramukaka_cart');
+    const parsedCart: CartItem[] = savedCart ? JSON.parse(savedCart) : [];
+    setCart(parsedCart);
+    
+    const savedProfile = localStorage.getItem('ramukaka_profile');
+    const localProfile: Partial<UserProfile> = savedProfile ? JSON.parse(savedProfile) : {};
 
-        let finalProfile = localProfile;
-        
-        const user = auth.currentUser;
-        if(user) {
-             const userDoc = await getDoc(doc(db, 'users', user.uid));
-             if (userDoc.exists()) {
-                 const fbProfile = userDoc.data();
-                 finalProfile = {
-                   name: fbProfile.name || localProfile.name || '',
-                   mobile: localProfile.mobile || fbProfile.mobile || '',
-                   address: localProfile.address || fbProfile.address || '',
-                   village: localProfile.village || fbProfile.village || '',
-                   pincode: localProfile.pincode || fbProfile.pincode || '',
-                   mapLat: fbProfile.mapLat || localProfile.mapLat || '',
-                   mapLng: fbProfile.mapLng || localProfile.mapLng || '',
-                   photoUrl: fbProfile.photoUrl || localProfile.photoUrl || '',
-                   paymentMethod: localProfile.paymentMethod || 'Online',
-                 };
-             }
-        }
-        setProfile(finalProfile);
-        setOrderData({
-            name: finalProfile.name || '',
-            mobile: finalProfile.mobile || '',
-            address: finalProfile.address || '',
-            village: finalProfile.village || '',
-            pincode: finalProfile.pincode || '',
-            mapLat: finalProfile.mapLat || '',
-            mapLng: finalProfile.mapLng || '',
-            paymentMethod: 'Online'
-        });
-        setLoading(false);
+    let finalProfile = localProfile;
+    
+    const user = auth.currentUser;
+    if(user) {
+         const userDoc = await getDoc(doc(db, 'users', user.uid));
+         if (userDoc.exists()) {
+             const fbProfile = userDoc.data();
+             finalProfile = {
+               name: fbProfile.name || localProfile.name || '',
+               mobile: localProfile.mobile || fbProfile.mobile || '',
+               address: localProfile.address || fbProfile.address || '',
+               village: localProfile.village || fbProfile.village || '',
+               pincode: localProfile.pincode || fbProfile.pincode || '',
+               mapLat: fbProfile.mapLat || localProfile.mapLat || '',
+               mapLng: fbProfile.mapLng || localProfile.mapLng || '',
+               photoUrl: fbProfile.photoUrl || localProfile.photoUrl || '',
+               paymentMethod: localProfile.paymentMethod || 'Online',
+             };
+         }
     }
-    loadData();
-  }, []);
+    setProfile(finalProfile);
+    setOrderData({
+        name: finalProfile.name || '',
+        mobile: finalProfile.mobile || '',
+        address: finalProfile.address || '',
+        village: finalProfile.village || '',
+        pincode: finalProfile.pincode || '',
+        mapLat: finalProfile.mapLat || '',
+        mapLng: finalProfile.mapLng || '',
+        paymentMethod: 'Online'
+    });
+    setLoading(false);
+
+    if (parsedCart.length > 0) {
+      fetchRecommendation(parsedCart, finalProfile);
+    }
+  }, [fetchRecommendation]);
+
+  useEffect(() => {
+      loadData();
+  }, [loadData]);
+
 
   const updateCart = (newCart: CartItem[]) => {
     setCart(newCart);
     localStorage.setItem('ramukaka_cart', JSON.stringify(newCart));
+
+    if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+        fetchRecommendation(newCart, profile);
+    }, 1500); // 1.5 second debounce
   };
 
   const handleQuantityChange = (productId: string, quantity: number) => {
@@ -323,6 +381,22 @@ export default function CartPage() {
                 ))}
             </div>
 
+            { isAiThinking ? (
+                 <div className="bg-card p-4 rounded-xl shadow-sm space-y-3 animate-pulse">
+                    <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-muted"></div>
+                         <div className='flex-1 space-y-2'>
+                            <div className="h-4 bg-muted rounded w-3/4"></div>
+                            <div className="h-3 bg-muted rounded w-1/2"></div>
+                         </div>
+                    </div>
+                </div>
+            ) : recommendation && (
+                 <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl shadow-sm space-y-2">
+                    <p className="text-sm text-primary-dark font-medium">{recommendation}</p>
+                </div>
+            )}
+            
             <Button variant="outline" className="w-full" asChild>
                 <Link href="/customer/chat">
                     <MessageSquare className="mr-2 h-4 w-4" />
