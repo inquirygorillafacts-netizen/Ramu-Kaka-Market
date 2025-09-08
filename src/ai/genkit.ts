@@ -1,3 +1,4 @@
+'use server';
 //
 // Copyright 2024 Google LLC
 //
@@ -15,7 +16,7 @@
 
 import {genkit, type GenkitErrorCode, type GenkitError} from 'genkit';
 import {googleAI, type GoogleAIGeminiModel} from '@genkit-ai/googleai';
-import {firebase} from '@genkit-ai/firebase';
+import {firebase} from '@genkit-ai/firebase/plugin';
 import {dotprompt} from '@genkit-ai/dotprompt';
 import {doc, getDoc} from 'firebase/firestore';
 import {db} from '@/lib/firebase';
@@ -53,40 +54,6 @@ export async function getGeminiApiKey(): Promise<string | null> {
     }
   } catch (error) {
     console.error('Error fetching Gemini API key from Firestore:', error);
-    return null;
-  }
-}
-
-export async function getRazorpayKeys(): Promise<{
-  key_id: string;
-  key_secret: string;
-} | null> {
-  if (razorpayKeys) {
-    return razorpayKeys;
-  }
-
-  try {
-    const configDocRef = doc(db, 'secure_configs', 'api_keys');
-    const docSnap = await getDoc(configDocRef);
-
-    if (
-      docSnap.exists() &&
-      docSnap.data().razorpay_key_id &&
-      docSnap.data().razorpay_key_secret
-    ) {
-      razorpayKeys = {
-        key_id: docSnap.data().razorpay_key_id,
-        key_secret: docSnap.data().razorpay_key_secret,
-      };
-      return razorpayKeys;
-    } else {
-      console.error('Razorpay keys document not found in Firestore.');
-      throw new Error(
-        'Razorpay keys document (`secure_configs/api_keys`) not found.'
-      );
-    }
-  } catch (error) {
-    console.error('Error fetching Razorpay keys from Firestore:', error);
     return null;
   }
 }
