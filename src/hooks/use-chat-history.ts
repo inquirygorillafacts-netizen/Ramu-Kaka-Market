@@ -19,14 +19,18 @@ export function useChatHistory(storageKey: string) {
     }
   }, [storageKey]);
 
-  const setHistory = useCallback((newHistory: ChatMessage[]) => {
+  const setHistory = useCallback((newHistoryOrUpdater: React.SetStateAction<ChatMessage[]>) => {
+    // Allow functional updates for streaming
+    const newHistory = typeof newHistoryOrUpdater === 'function' 
+        ? (newHistoryOrUpdater as (prevState: ChatMessage[]) => ChatMessage[])(chatHistory) 
+        : newHistoryOrUpdater;
     try {
       setChatHistory(newHistory);
       localStorage.setItem(storageKey, JSON.stringify(newHistory));
     } catch (error) {
       console.error("Failed to save chat history to localStorage", error);
     }
-  }, [storageKey]);
+  }, [storageKey, chatHistory]);
 
   const addMessage = useCallback((message: ChatMessage) => {
     // Use a functional update to ensure we're always working with the latest state

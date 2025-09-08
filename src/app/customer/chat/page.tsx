@@ -47,7 +47,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
 
 **STRICT RULES - What You MUST NOT Do:**
 1.  **DO NOT Discuss Products or Prices:** You have NO KNOWLEDGE of the store's inventory, stock, or pricing.
-    *   If asked about product availability (e.g., "Do you have apples?", "aloo hai?"), you MUST reply: "बेटा, मैं भी बता देता, लेकिन अभी मेरा दिमाग़ थोड़ा उलझा हुआ है। आप होम पेज पर जाकर खुद ही सारे उत्पाद देख सकते हैं।"
+    *   If asked about product availability (e.g., "Do you have apples?", "aloo hai?"), you MUST reply: "बेटा, मैं भी बता देता, लेकिन अभी मेरा दिमाग़ थोड़ा उलझा हुआ है। आप होम पेज पर जाकर खुद ही सारे उत्पाद देख सकते हैं, वहाँ पर सर्च और फ़िल्टर का भी बढ़िया ऑप्शन है।"
     *   If asked about price (e.g., "What is the price of milk?"), you MUST reply: "यार मुझे करेक्ट प्राइज़ नहीं पता, इसलिए तुम होम पेज पर जाकर देख लो प्लीज़।"
 2.  **DO NOT Discuss Discounts or Offers:** You do not know about promotions. You MUST deflect by saying: "ऑफर की जानकारी के लिए आप होम पेज पर देख सकते हैं, मुझे सही से अंदाज़ा नहीं है।"
 3.  **DO NOT Act as a Helpline or Policy Expert:** For questions about policies or help, you MUST guide them to the correct section of the website. Say: "बेटा, इसके लिए हेल्प सेक्शन बना हुआ है, आप वहाँ देख लो।"
@@ -66,6 +66,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
           genAI.current = new GoogleGenerativeAI(apiKey);
           model.current = genAI.current.getGenerativeModel({
             model: 'gemini-1.5-flash-latest', 
+            systemInstruction: systemPrompt,
           });
           setIsModelReady(true);
         } else {
@@ -79,7 +80,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     };
     
     initAI();
-  }, [toast]);
+  }, [toast, systemPrompt]);
 
   useEffect(() => {
     if (!isModelReady) return;
@@ -126,29 +127,34 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     if (!chatInput.trim() || isAiResponding || !model.current) return;
 
     const userMessageContent = chatInput;
-    const currentUserName = profile.name || 'दोस्त';
-    
     addMessage({ role: 'user', content: userMessageContent });
     setChatInput('');
     setIsAiResponding(true);
 
     try {
-        // Limit history to the last 10 messages for performance and token saving
-        const limitedHistory = chatHistory.slice(-10);
+        const limitedHistory = chatHistory.slice(-10).map(msg => ({
+            role: msg.role,
+            parts: [{ text: msg.content }]
+        }));
 
-        const fullPrompt = `${systemPrompt}
+        const chat = model.current.startChat({
+            history: limitedHistory,
+        });
+
+        const result = await chat.sendMessageStream(userMessageContent);
         
-        The user's name is: ${currentUserName}.
-        
-        Here is the recent conversation history:
-        ${limitedHistory.map(msg => `${msg.role === 'user' ? currentUserName : 'Ramu Kaka'}: ${msg.content}`).join('\n')}
-        ${currentUserName}: ${userMessageContent}
-        Ramu Kaka:`;
+        let responseText = '';
+        addMessage({ role: 'model', content: '' }); // Add a placeholder for the streaming response
 
-        const result = await model.current.generateContent(fullPrompt);
-        const responseText = result.response.text();
-
-        addMessage({ role: 'model', content: responseText });
+        for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            responseText += chunkText;
+            setHistory(prev => {
+                const newHistory = [...prev];
+                newHistory[newHistory.length - 1].content = responseText;
+                return newHistory;
+            });
+        }
 
     } catch (error: any) {
         console.error("AI Error:", error);
@@ -221,11 +227,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                         </div>
                     )}
                     <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
-                       {msg.role === 'model' ? (
-                          <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
-                       ) : (
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                       )}
+                       <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
                     </div>
                      {msg.role === 'user' && (
                         <Avatar className="w-9 h-9 mb-1">
@@ -264,8 +266,4 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     </div>
   )
 }
-    
-
-    
-
     
