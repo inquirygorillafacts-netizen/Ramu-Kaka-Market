@@ -80,7 +80,7 @@ Based on this, you must generate a short, friendly, and enticing suggestion in H
             if (apiKey) {
                 suggestionGenAI.current = new GoogleGenerativeAI(apiKey);
                 suggestionModel.current = suggestionGenAI.current.getGenerativeModel({
-                    model: 'gemini-1.5-flash-latest',
+                    model: 'gemini-2.5-flash',
                     systemInstruction: suggestionSystemPrompt,
                 });
             } else {
