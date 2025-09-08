@@ -66,12 +66,13 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         if (apiKey) {
           genAI.current = new GoogleGenerativeAI(apiKey);
           model.current = genAI.current.getGenerativeModel({
-            model: 'gemini-1.5-flash-latest', 
+            model: 'gemini-1.5-flash-latest',
             systemInstruction: systemPrompt,
           });
           setIsModelReady(true);
         } else {
-          throw new Error('API key is missing.');
+           console.error('API key is missing.');
+           toast({ variant: 'destructive', title: 'AI Error', description: 'Could not initialize AI. API key is missing.' });
         }
       } catch (error) {
         console.error("AI Init Error:", error);
@@ -262,12 +263,12 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                      )}
                 </div>
             ))}
-             {isAiResponding && chatHistory.length > 0 && chatHistory[chatHistory.length - 1]?.role === 'model' && chatHistory[chatHistory.length -1].content === '' && (
+             {isAiResponding && chatHistory.length > 0 && chatHistory[chatHistory.length - 1]?.role === 'model' && (
                 <div className="flex justify-start items-end gap-2">
                      <div className="p-1.5 bg-primary/10 rounded-full mb-1">
                         <BrainCircuit className="w-6 h-6 text-primary"/>
                     </div>
-                     <div className="max-w-xs md:max-w-md p-3 rounded-2xl bg-card text-foreground rounded-bl-none shadow-sm flex items-center">
+                     <div className={`max-w-xs md:max-w-md p-3 rounded-2xl bg-card text-foreground rounded-bl-none shadow-sm flex items-center ${chatHistory[chatHistory.length-1].content === '' ? '' : 'hidden'}`}>
                         <Loader2 className="w-5 h-5 animate-spin"/>
                     </div>
                 </div>
@@ -282,6 +283,12 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                     placeholder={!isModelReady ? "AI is waking up..." : "रामू काका से कुछ भी पूछें..."}
                     className="flex-grow h-11 text-base"
                     disabled={isAiResponding || !isModelReady}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleActionClick(e);
+                        }
+                    }}
                 />
                 <Button type="submit" size="icon" disabled={isSendDisabled && !isAiResponding} className="h-11 w-11">
                     {isAiResponding ? <Square className="w-5 h-5"/> : <Send className="w-5 h-5"/>}
@@ -296,3 +303,4 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     
 
     
+
