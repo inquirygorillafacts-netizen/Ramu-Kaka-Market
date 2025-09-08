@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChatMessage } from '@/lib/types';
 
+const MAX_HISTORY_LENGTH = 20; // 10 user messages + 10 model responses
+
 export function useChatHistory(storageKey: string) {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
@@ -19,18 +21,26 @@ export function useChatHistory(storageKey: string) {
     }
   }, [storageKey]);
 
-  const setHistory = useCallback((newHistory: ChatMessage[]) => {
-    setChatHistory(newHistory);
+  const setHistory = useCallback((newHistory: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
+    const updatedHistory = typeof newHistory === 'function' ? newHistory(chatHistory) : newHistory;
+    
+    setChatHistory(updatedHistory);
     try {
-        localStorage.setItem(storageKey, JSON.stringify(newHistory));
+        localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
     } catch (error) {
         console.error("Failed to save updated chat history to localStorage", error);
     }
-  }, [storageKey]);
+  }, [storageKey, chatHistory]);
 
   const addMessage = useCallback((message: ChatMessage) => {
     setChatHistory(prevHistory => {
-        const updatedHistory = [...prevHistory, message];
+        let updatedHistory = [...prevHistory, message];
+        
+        // Prune the history if it exceeds the max length
+        if (updatedHistory.length > MAX_HISTORY_LENGTH) {
+            updatedHistory = updatedHistory.slice(updatedHistory.length - MAX_HISTORY_LENGTH);
+        }
+
         try {
             localStorage.setItem(storageKey, JSON.stringify(updatedHistory));
         } catch (error) {

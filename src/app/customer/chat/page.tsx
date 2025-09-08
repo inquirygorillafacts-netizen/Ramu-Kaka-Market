@@ -6,17 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile } from '@/lib/types';
-import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2, Square } from 'lucide-react';
+import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2, Square, MessageSquare } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { doc, getDoc } from 'firebase/firestore';
 import { useChatHistory } from '@/hooks/use-chat-history';
-import { ChatMessage } from '@/lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Card, CardContent } from '@/components/ui/card';
 
 
 export default function ChatPage() {
@@ -75,14 +75,6 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     }
   }, [systemPrompt, toast]);
 
-
-  useEffect(() => {
-    if (chatHistory.length === 0) {
-        addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
@@ -111,7 +103,6 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
   
   const handleClearChat = () => {
     setHistory([]);
-    addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
   };
   
   const stopResponding = () => {
@@ -132,7 +123,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
   }
   
   const handleChatSubmit = async () => {
-    if (!chatInput.trim() || isAiResponding || !chatModel.current) return;
+    if (!chatInput.trim() || !chatModel.current) return;
 
     const userMessageContent = chatInput;
     addMessage({ role: 'user', content: userMessageContent });
@@ -144,7 +135,8 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
             role: msg.role,
             parts: [{ text: msg.content }]
         }));
-
+        
+        // Ensure the conversation starts with a user message for the API
         if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
             historyForAI.shift();
         }
@@ -155,28 +147,19 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         const response = result.response;
         const responseText = response.text();
         
-        addMessage({ role: 'model', content: '' });
+        addMessage({ role: 'model', content: '' }); // Add an empty message for the AI
 
         let i = 0;
         typingIntervalRef.current = setInterval(() => {
             if (i < responseText.length) {
-                 const currentHistory = [...chatHistory, {role: 'user', content: userMessageContent}];
-                 const lastMessageIndex = currentHistory.length;
-                 const newHistory = [...currentHistory];
-                 if(newHistory[lastMessageIndex]) {
-                    newHistory[lastMessageIndex].content = responseText.substring(0, i + 1);
-                 } else {
-                    newHistory.push({ role: 'model', content: responseText.substring(0, i + 1) });
-                 }
-
-                 const finalHistory = [...chatHistory];
-                 const lastMsg = finalHistory[finalHistory.length - 1];
-                 if (lastMsg && lastMsg.role === 'model') {
-                     lastMsg.content = responseText.substring(0, i + 1);
-                     setHistory(finalHistory);
-                 }
-
-
+                 setHistory(prev => {
+                     const newHistory = [...prev];
+                     const lastMessage = newHistory[newHistory.length - 1];
+                     if (lastMessage && lastMessage.role === 'model') {
+                         lastMessage.content = responseText.substring(0, i + 1);
+                     }
+                     return newHistory;
+                 });
                 i++;
             } else {
                stopResponding();
@@ -249,37 +232,47 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         </header>
 
         <main ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6">
-            {chatHistory.map((msg, index) => (
-                <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    {msg.role === 'model' && (
-                         <div className="p-1.5 bg-primary/10 rounded-full mb-1">
-                            <BrainCircuit className="w-6 h-6 text-primary"/>
-                        </div>
-                    )}
-                    <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
-                       <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
-                    </div>
-                     {msg.role === 'user' && (
-                        <Avatar className="w-9 h-9 mb-1">
-                            <AvatarImage src={profile.photoUrl || ''} />
-                            <AvatarFallback>{getInitials(profile.name || '')}</AvatarFallback>
-                        </Avatar>
-                     )}
-                </div>
-            ))}
-             {isAiResponding && chatHistory[chatHistory.length - 1]?.role === 'user' && (
-                 <div className={`flex items-end gap-2 justify-start`}>
-                    <div className="p-1.5 bg-primary/10 rounded-full mb-1">
-                        <BrainCircuit className="w-6 h-6 text-primary"/>
-                    </div>
-                    <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm bg-card text-foreground rounded-bl-none`}>
-                        <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                        <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                        <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
-                        </div>
-                    </div>
-                </div>
+            {chatHistory.length > 0 ? (
+              chatHistory.map((msg, index) => (
+                  <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      {msg.role === 'model' && (
+                          <div className="p-1.5 bg-primary/10 rounded-full mb-1">
+                              <BrainCircuit className="w-6 h-6 text-primary"/>
+                          </div>
+                      )}
+                      <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
+                        {isAiResponding && msg.role === 'model' && msg.content === '' && index === chatHistory.length - 1 ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                            <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                            <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
+                          </div>
+                        ) : (
+                          <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
+                        )}
+                      </div>
+                      {msg.role === 'user' && (
+                          <Avatar className="w-9 h-9 mb-1">
+                              <AvatarImage src={profile.photoUrl || ''} />
+                              <AvatarFallback>{getInitials(profile.name || '')}</AvatarFallback>
+                          </Avatar>
+                      )}
+                  </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground animate-fade-in-up">
+                  <Card className="p-8 shadow-lg border-primary/10">
+                      <CardContent className="flex flex-col items-center gap-4 p-0">
+                         <div className="p-4 bg-primary/10 rounded-full">
+                            <MessageSquare className="w-12 h-12 text-primary/80"/>
+                         </div>
+                         <div className="space-y-1">
+                            <h2 className="text-xl font-semibold text-foreground">यह चैट खाली है</h2>
+                            <p className="text-muted-foreground">कुछ तो बात करो!</p>
+                         </div>
+                      </CardContent>
+                  </Card>
+              </div>
             )}
         </main>
 
@@ -290,7 +283,6 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                     onChange={(e) => setChatInput(e.target.value)}
                     placeholder={"रामू काका से कुछ भी पूछें..."}
                     className="flex-grow h-11 text-base"
-                    disabled={isAiResponding}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
