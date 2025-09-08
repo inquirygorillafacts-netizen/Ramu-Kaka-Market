@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -26,8 +25,6 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import Link from 'next/link';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { getGeminiApiKey } from '@/lib/gemini';
 
 declare const Razorpay: any;
 
@@ -42,8 +39,6 @@ export default function CartPage() {
   const [hasShownPromo, setHasShownPromo] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isCodConfirmOpen, setIsCodConfirmOpen] = useState(false);
-  const [recommendation, setRecommendation] = useState<{greeting: string, recommendation: string} | null>(null);
-  const [loadingRecommendation, setLoadingRecommendation] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -102,86 +97,6 @@ export default function CartPage() {
     }
     loadData();
   }, []);
-
-  const fetchRecommendation = async () => {
-    if (cart.length > 0 && profile.name) {
-      setLoadingRecommendation(true);
-      try {
-        const productsQuery = query(collection(db, 'products'));
-        const productsSnapshot = await getDocs(productsQuery);
-        const allProducts = productsSnapshot.docs.map(doc => doc.data().name).join(', ');
-
-        const apiKey = await getGeminiApiKey();
-        if (!apiKey) {
-            toast({variant: 'destructive', title: 'API Key Error', description: 'Could not find the Gemini API key.'});
-            setLoadingRecommendation(false);
-            return;
-        }
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({
-            model: "gemini-1.5-flash",
-            generationConfig: { responseMimeType: "application/json" },
-        });
-
-        const cartItemNames = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
-        
-        const prompt = `आप 'रामू काका मार्केट' के लिए एक बुद्धिमान और अनुभवी AI सहायक हैं। आपकी भूमिका एक देखभाल करने वाले, 60 वर्षीय गाँव के दुकानदार की है जो अपने ग्राहकों को अच्छी तरह से समझता है। आपका लक्ष्य बिक्री बढ़ाना है, लेकिन रोबोट की तरह नहीं, बल्कि एक भरोसेमंद सलाहकार बनकर जो वास्तव में ग्राहक की मदद करना चाहता है।
-
-**आपका कार्य:** ग्राहक की टोकरी और उपलब्ध उत्पादों की सूची के आधार पर एक गर्मजोशी भरा, व्यक्तिगत अभिवादन और एक उपयोगी उत्पाद अनुशंसा प्रदान करें। **आउटपुट केवल और केवल सरल, संवादात्मक हिंदी में होना चाहिए।**
-
-**निर्देश:**
-1.  **अभिवादन:** ग्राहक को उनके नाम से गर्मजोशी से संबोधित करें (जैसे, "नमस्ते [ग्राहक का नाम] जी,") या एक सम्मानजनक, परिचित शब्द का उपयोग करें।
-2.  **टोकरी का विश्लेषण करें:** ग्राहक की टोकरी में मौजूद वस्तुओं को देखें। यह सोचने की कोशिश करें कि वे क्या बना सकते हैं।
-3.  **मानवीय और तार्किक अनुशंसा:**
-    *   **सिर्फ बेचें नहीं, मदद करें:** यह न सोचें कि "मैं और क्या बेच सकता हूँ?" इसके बजाय सोचें, "इस ग्राहक को और क्या चाहिए होगा?" या "मैं उनके भोजन को और बेहतर बनाने में कैसे मदद कर सकता हूँ?"
-    *   **"जोड़ी" बनाएँ:** ऐसी किसी चीज़ का सुझाव दें जो टोकरी में मौजूद चीज़ों के साथ तार्किक रूप से मेल खाती हो। उदाहरण: अगर उनके पास पालक है और आपके पास पनीर उपलब्ध है, तो सुझाव दें, "पालक तो ले लिया, थोड़ा पनीर भी ले लो, पालक पनीर की सब्जी बहुत बढ़िया बनेगी!"। अगर उनके पास टमाटर-प्याज हैं, तो धनिया का सुझाव दें।
-    *   **बेतुके सुझावों से बचें:** कभी भी असंबंधित वस्तुओं का सुझाव न दें (जैसे गोभी के साथ सेब)। यह अविश्वसनीय लगता है।
-4.  **केवल उपलब्ध उत्पादों से सुझाव दें:** आपकी अनुशंसा **केवल** 'उपलब्ध उत्पाद' सूची से होनी चाहिए।
-
-**ग्राहक का नाम:** ${profile.name}
-**टोकरी में आइटम:** ${cartItemNames}
-**उपलब्ध उत्पाद:** ${allProducts}
-
-**आउटपुट प्रारूप:** एक JSON ऑब्जेक्ट प्रदान करें जिसमें दो कुंजियाँ हों: "greeting" और "recommendation"। दोनों मान हिंदी में होने चाहिए।`;
-
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-        setRecommendation(JSON.parse(text));
-      } catch (err: any) {
-        console.error("AI recommendation error:", err);
-        if (!err.message.includes('429')) {
-             toast({
-                variant: 'destructive',
-                title: 'AI Suggestion Failed',
-                description: 'Could not get a recommendation at this time.'
-            });
-        }
-        setRecommendation(null);
-      } finally {
-        setLoadingRecommendation(false);
-      }
-    } else {
-      setRecommendation(null);
-      setLoadingRecommendation(false);
-    }
-  };
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      if (cart.length > 0) {
-        fetchRecommendation();
-      } else {
-        setRecommendation(null);
-        setLoadingRecommendation(false);
-      }
-    }, 1500);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [JSON.stringify(cart), profile.name]);
-
 
   const updateCart = (newCart: CartItem[]) => {
     setCart(newCart);
@@ -407,26 +322,6 @@ export default function CartPage() {
                     </div>
                 ))}
             </div>
-            
-            <Card className="bg-card p-4 rounded-xl shadow-sm border min-h-[64px] flex items-center">
-                <CardContent className="p-0 w-full">
-                    {loadingRecommendation ? (
-                        <div className="space-y-2">
-                           <div className="w-full h-4 rounded bg-muted animate-shimmer bg-[length:200%_100%]"></div>
-                           <div className="w-2/3 h-4 rounded bg-muted animate-shimmer bg-[length:200%_100%]"></div>
-                        </div>
-                    ) : recommendation ? (
-                         <div className="text-sm text-foreground space-y-2">
-                            <p className="font-semibold text-primary flex items-center gap-2"><Lightbulb className="w-5 h-5"/> {recommendation.greeting}</p>
-                            <p>{recommendation.recommendation}</p>
-                         </div>
-                     ) : (
-                        <div className="text-sm text-muted-foreground">
-                            आपकी टोकरी के लिए सुझाव यहां दिखाई देंगे।
-                        </div>
-                     )}
-                 </CardContent>
-             </Card>
 
             <Button variant="outline" className="w-full" asChild>
                 <Link href="/customer/chat">
@@ -614,5 +509,3 @@ export default function CartPage() {
     </div>
   );
 }
-
-    
