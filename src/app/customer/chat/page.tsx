@@ -171,8 +171,9 @@ export default function ChatPage() {
   
   const genAI = useRef<GoogleGenerativeAI | null>(null);
   const model = useRef<GenerativeModel | null>(null);
+  const [isModelReady, setIsModelReady] = useState(false);
 
-  const systemPrompt = `You are Ramu Kaka, a friendly, wise, and helpful shopkeeper for an online grocery store. Your personality is like a humorous uncle from a village in India. You speak "Hinglish" (a mix of Hindi and English), but keep it simple, respectful, and easy to understand.
+  const systemPrompt = `You are Ramu Kaka, a friendly, wise, and helpful shopkeeper for an online grocery store. Your personality is like a humorous, experienced uncle from a village in India. You speak "Hinglish" (a mix of Hindi and English), but keep it simple, respectful, and easy to understand.
 
 Your primary goals are:
 1.  **Be a Helpful Assistant:** Answer questions about products, provide recipes, give nutritional advice, and suggest meal ideas.
@@ -181,7 +182,7 @@ Your primary goals are:
 
 **VERY IMPORTANT - Tool Usage Rules:**
 
-*   **Rule 1: Use \`findProducts\` for Looking Up Items.**
+*   **Rule 1: Use \`findProducts\` for Product Queries.**
     *   **WHEN TO USE:** You **MUST** use the \`findProducts\` tool whenever the user asks about a product, its price, or its availability. This includes direct questions ("Do you have apples?"), price checks ("What's the price of milk?"), and general inquiries ("What vegetables do you have?").
     *   **YOUR ACTION:** When you decide to use this tool, you must **ONLY return the function call object.** Do not add any other text. First, add a message to the chat like "एक मिनट बेटा, देख कर बताता हूँ..." to inform the user you are checking. Then, the system will execute the function and provide you with the results. You will then formulate a friendly response based on those results.
 
@@ -225,13 +226,15 @@ Start the conversation by greeting the user if the history is empty.
               if(chatHistory.length === 0) {
                  addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
               }
+              setIsModelReady(true);
           } else {
               toast({ variant: 'destructive', title: 'AI Error', description: 'Could not initialize AI. API key is missing.'});
+              setIsModelReady(false);
           }
       };
       initAI();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast]); // Run only once
+  }, []);
 
 
   useEffect(() => {
@@ -339,6 +342,8 @@ Start the conversation by greeting the user if the history is empty.
     );
   }
 
+  const isSendDisabled = !chatInput.trim() || isAiResponding || !isModelReady;
+
   return (
     <div className="flex flex-col h-screen bg-muted/30">
         <header className="flex items-center justify-between gap-4 p-3 border-b bg-card shadow-sm">
@@ -421,12 +426,12 @@ Start the conversation by greeting the user if the history is empty.
                 <Input 
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="रामू काका से कुछ भी पूछें..."
+                    placeholder={!isModelReady ? "AI is waking up..." : "रामू काका से कुछ भी पूछें..."}
                     className="flex-grow h-11 text-base"
-                    disabled={isAiResponding}
+                    disabled={isSendDisabled}
                 />
-                <Button type="submit" size="icon" disabled={!chatInput.trim() || isAiResponding} className="h-11 w-11">
-                    {isAiResponding ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5"/>}
+                <Button type="submit" size="icon" disabled={isSendDisabled} className="h-11 w-11">
+                    {isAiResponding || !isModelReady ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5"/>}
                 </Button>
             </form>
         </footer>
@@ -436,6 +441,7 @@ Start the conversation by greeting the user if the history is empty.
     
 
     
+
 
 
 
