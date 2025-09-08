@@ -28,6 +28,29 @@ import Link from 'next/link';
 
 declare const Razorpay: any;
 
+// This function is for client-side use only. It's not secure for production.
+async function getRazorpayKeys() {
+    try {
+        const configDocRef = doc(db, 'secure_configs', 'api_keys');
+        const docSnap = await getDoc(configDocRef);
+
+        if (docSnap.exists()) {
+            const keys = docSnap.data();
+            if (keys.razorpay_key_id && keys.razorpay_key_secret) {
+                return { 
+                    keyId: keys.razorpay_key_id, 
+                    keySecret: keys.razorpay_key_secret 
+                };
+            }
+        }
+        throw new Error('Razorpay keys not found in Firestore.');
+    } catch (error) {
+        console.error("Error fetching Razorpay keys from Firestore:", error);
+        return null;
+    }
+}
+
+
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [profile, setProfile] = useState<Partial<UserProfile>>({});
@@ -167,19 +190,24 @@ export default function CartPage() {
     if (!currentUser) return;
     setPlacingOrder(true);
     try {
-        // 1. Fetch Key ID from our backend
-        const keyResponse = await fetch('/api/razorpay/key');
-        const { keyId } = await keyResponse.json();
-        
-        if (!keyId) {
-            throw new Error('Could not fetch Razorpay key.');
+        const keys = await getRazorpayKeys();
+        if (!keys) {
+            throw new Error('Could not fetch Razorpay keys from the database.');
         }
 
-        // 2. Create Order from our backend
-        const orderResponse = await fetch('/api/razorpay/order', {
+        const { keyId, keySecret } = keys;
+
+        // WARNING: Using a proxy is required for security.
+        // This is a temporary, insecure solution for demonstration.
+        // A CORS proxy can be used for development, but is not for production.
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        const razorpayApiUrl = 'https://api.razorpay.com/v1/orders';
+
+        const orderResponse = await fetch(proxyUrl + razorpayApiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': 'Basic ' + btoa(`${keyId}:${keySecret}`)
             },
             body: JSON.stringify({
                 amount: getCartTotal() * 100,
@@ -190,11 +218,11 @@ export default function CartPage() {
 
         if (!orderResponse.ok) {
             const errorBody = await orderResponse.json();
-            throw new Error(errorBody.error || 'Failed to create Razorpay order.');
+            throw new Error(errorBody.error?.description || 'Failed to create Razorpay order.');
         }
 
         const order = await orderResponse.json();
-
+        
         const paymentOptions = {
             key: keyId,
             amount: order.amount,
@@ -234,7 +262,7 @@ export default function CartPage() {
 
     } catch (error: any) {
         console.error("Razorpay error:", error);
-        toast({ variant: 'destructive', title: 'Payment Error', description: error.message || 'Could not initiate online payment.' });
+        toast({ variant: 'destructive', title: 'Payment Error', description: error.message || 'Could not initiate online payment. A CORS proxy might be needed.' });
         setPlacingOrder(false);
     }
   }
