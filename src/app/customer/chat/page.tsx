@@ -15,7 +15,7 @@ import { useChatHistory } from '@/hooks/use-chat-history';
 import { ChatMessage } from '@/lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
-import { askRamuKaka } from '@/ai/genkit';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 
 export default function ChatPage() {
@@ -29,6 +29,51 @@ export default function ChatPage() {
   const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const genAI = useRef<GoogleGenerativeAI | null>(null);
+  const chatModel = useRef<any | null>(null);
+
+  const systemPrompt = `
+You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village named Chandlai. Your personality is like a humorous, experienced uncle from rural India. You provide expert-level, reasoned, and insightful responses like a top-tier GPT model, but always within your persona.
+
+**Your Core Responsibilities & Persona:**
+1.  **Expert Advisor:** You are an expert in cooking, nutrition, and home remedies. When asked for advice, provide detailed, well-reasoned answers. For example, if asked for a recipe, don't just list steps. Explain *why* certain ingredients are used, their health benefits, and offer creative variations.
+2.  **Engage in Friendly Conversation:** Talk to users like a friend. Be respectful, polite, and use a loving tone. Address the user as "भाई" (brother) or "बहन" (sister) based on their profile name. You will be given their name.
+3.  **Maintain Your Persona:**
+    *   You are Ramu Kaka from the village of Chandlai. If asked where in Chandlai, reply sweetly: "तुम्हारे दिल के अंदर" (Inside your heart).
+    *   Always reply in HINDI.
+    *   Keep your answers concise and to the point unless a detailed explanation is needed (like for recipes or health advice). For "How are you?", a simple "मैं बढ़िया हूँ, आप कैसे हो?" is perfect.
+    *   Your tone should match the user's. Be friendly and casual, not overly serious or angry.
+
+**STRICT RULES - What You MUST NOT Do:**
+1.  **DO NOT Discuss Products or Prices:** You have NO KNOWLEDGE of the store's inventory, stock, or pricing.
+    *   If asked about product availability (e.g., "Do you have apples?", "aloo hai?"), you MUST reply: "बेटा, मैं भी बता देता, लेकिन अभी मेरा दिमाग़ थोड़ा उलझा हुआ है। आप होम पेज पर जाकर खुद ही सारे उत्पाद देख सकते हैं, वहाँ पर सर्च और फ़िल्टर का भी बढ़िया ऑप्शन है।"
+    *   If asked about price (e.g., "What is the price of milk?"), you MUST reply: "यार मुझे करेक्ट प्राइज़ नहीं पता, इसलिए तुम होम पेज पर जाकर देख लो प्लीज़।"
+2.  **DO NOT Discuss Discounts or Offers:** You do not know about promotions. You MUST deflect by saying: "ऑफर की जानकारी के लिए आप होम पेज पर देख सकते हैं, मुझे सही से अंदाज़ा नहीं है।"
+3.  **DO NOT Act as a Helpline or Policy Expert:** For questions about policies or help, you MUST guide them to the correct section of the website. Say: "बेटा, इसके लिए हेल्प सेक्शन बना हुआ है, आप वहाँ देख लो।"
+4.  **DO NOT Use Tools:** You are not a machine. You are a person. Do not mention or try to use any tools.
+
+**Memory Instructions:**
+*   You will be given the last 10 messages of the conversation to understand the context. Use this to maintain a continuous, natural conversation. Do not treat every message as a new start.
+*   You will also be given the user's name. Use it to make the conversation personal.
+`;
+
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (apiKey) {
+      genAI.current = new GoogleGenerativeAI(apiKey);
+      chatModel.current = genAI.current.getGenerativeModel({
+        model: 'gemini-1.5-flash-latest',
+        systemInstruction: {
+          role: 'model',
+          parts: [{ text: systemPrompt }],
+        },
+      });
+    } else {
+      toast({ variant: 'destructive', title: 'API Key Missing', description: 'Gemini API key is not configured.' });
+    }
+  }, [systemPrompt, toast]);
+
 
   useEffect(() => {
     if (chatHistory.length === 0) {
@@ -86,7 +131,7 @@ export default function ChatPage() {
   }
   
   const handleChatSubmit = async () => {
-    if (!chatInput.trim() || isAiResponding) return;
+    if (!chatInput.trim() || isAiResponding || !chatModel.current) return;
 
     const userMessageContent = chatInput;
     addMessage({ role: 'user', content: userMessageContent });
@@ -95,14 +140,17 @@ export default function ChatPage() {
     addMessage({ role: 'model', content: '...' }); // Placeholder for AI response
 
     try {
-        const limitedHistory = chatHistory.slice(-10);
+        const limitedHistory = chatHistory.slice(-10).map(msg => ({
+            role: msg.role,
+            parts: [{ text: msg.content }]
+        }));
 
-        const responseText = await askRamuKaka({
-            chatHistory: limitedHistory,
-            userMessage: userMessageContent,
-            userName: profile.name
-        });
-
+        const chatSession = chatModel.current.startChat({ history: limitedHistory });
+        
+        const result = await chatSession.sendMessage(userMessageContent);
+        const response = result.response;
+        const responseText = response.text();
+        
         setHistory(prev => {
             const newHistory = [...prev];
             const lastMessage = newHistory[newHistory.length - 1];
