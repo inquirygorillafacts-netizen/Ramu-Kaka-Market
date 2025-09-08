@@ -60,7 +60,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     if (apiKey) {
       genAI.current = new GoogleGenerativeAI(apiKey);
       chatModel.current = genAI.current.getGenerativeModel({
-        model: 'gemini-1.5-flash-latest',
+        model: 'gemini-pro',
         systemInstruction: {
           role: 'model',
           parts: [{ text: systemPrompt }],
@@ -134,12 +134,15 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
             .slice(0, -1) // Remove the AI placeholder for the API call
             .filter(msg => msg.content)
             .map(msg => ({
-                role: msg.role,
+                role: msg.role === 'model' ? 'model' : 'user',
                 parts: [{ text: msg.content }]
             }));
+        
+        const userNameForPrompt = profile.name ? `The user's name is ${profile.name}.` : '';
 
         const chatSession = chatModel.current.startChat({ history: historyForAI });
-        const result = await chatSession.sendMessage(userMessageContent);
+        const result = await chatSession.sendMessage(`${userNameForPrompt}\n${userMessageContent}`);
+        
         const response = result.response;
         const responseText = response.text();
 
@@ -169,7 +172,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         if (error.message?.includes("503") || error.message?.includes("overloaded")) {
              toast({ variant: 'destructive', title: 'AI Busy', description: "रामू काका अभी बहुत व्यस्त हैं, कृपया कुछ क्षण बाद फिर से प्रयास करें।" });
         } else {
-            toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue.' });
+            toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka.' });
         }
         
         setChatInput(userMessageContent); // Restore user's input
