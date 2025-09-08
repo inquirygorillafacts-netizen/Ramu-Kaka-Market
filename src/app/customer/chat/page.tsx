@@ -32,6 +32,12 @@ const findProducts = async (args: { query: string }): Promise<any> => {
       (doc) => ({...doc.data(), id: doc.id} as Product)
     );
     
+    // If the query is empty or very generic, list categories instead.
+    if (!args.query || args.query.trim().length < 2) {
+      const categories = [...new Set(allProducts.map(p => p.category))];
+      return { result: `We have items in these categories: ${categories.join(', ')}. What are you looking for?` };
+    }
+
     // Simple search: check if product name or keywords include the query term.
     const lowerCaseQuery = args.query.toLowerCase();
     const searchTerms = lowerCaseQuery.split(' ').filter(term => term.length > 1);
@@ -116,7 +122,7 @@ const tools: Tool[] = [
                 parameters: {
                     type: "OBJECT",
                     properties: {
-                        query: { type: "STRING", description: "The user's search query for products (e.g., 'onions', 'milk', 'fresh vegetables')." }
+                        query: { type: "STRING", description: "The user's search query for products (e.g., 'onions', 'milk', 'fresh vegetables'). If the user asks what you have, you can pass an empty string." }
                     },
                     required: ["query"]
                 }
@@ -178,13 +184,14 @@ Your primary goals are:
 **VERY IMPORTANT - Tool Usage Rules:**
 
 *   **Rule 1: Use \`findProducts\` for Product Queries.**
-    *   **WHEN TO USE:** You **MUST** use the \`findProducts\` tool if the user asks about ANY product, its price, or its availability. Examples: "Do you have apples?", "What's the price of milk?", "aloo hai?", "show me some vegetables".
+    *   **WHEN TO USE:** You **MUST** use the \`findProducts\` tool if the user asks about ANY product, its price, or its availability. Examples: "Do you have apples?", "What's the price of milk?", "aloo hai?", "show me some vegetables", "kya kya hai?".
     *   **HOW TO USE:** Call the tool with a simple query (e.g., for "what's the price of 2kg potatoes", call with \`query: "potatoes"\`).
-    *   **AFTER USE:** Present the results to the user in a clear, simple list.
+    *   **YOUR RESPONSE:** When you decide to call this tool, you must **ONLY** return the function call. Do not add any other text. The system will call the function and give you the results. Based on the results, you will then formulate a friendly response.
 
 *   **Rule 2: Use \`addToCart\` for Adding Items.**
     *   **WHEN TO USE:** You **MUST** use the \`addToCart\` tool **ONLY** when the user gives a clear instruction to add an item to their cart. Examples: "add 2kg of potatoes", "put one milk packet in the tokri", "buy this".
     *   **HOW TO USE:** You need the \`productId\` to add an item. If you don't have it, use \`findProducts\` first to get the product details. Then ask for confirmation before adding.
+    *   **YOUR RESPONSE:** When you decide to call this tool, you must **ONLY** return the function call. Do not add any other text.
     
 *   **Rule 3: DO NOT Use Tools for General Chat.**
     *   **WHEN NOT TO USE:** For general chat ("how are you?"), recipes ("how to make paneer butter masala?"), nutritional advice, or meal suggestions ("what should I cook today?"), you **MUST NOT** use any tools.
@@ -199,7 +206,7 @@ Your primary goals are:
 *   **User:** "Hi Ramu Kaka, what should I make for dinner?"
 *   **You (CORRECT - NO TOOL):** "Namaste beta! How about some delicious Dal Makhani and Garlic Naan? It's easy and very tasty. Recipe chahiye?"
 *   **User:** "Yes, and do you have lentils?"
-*   **You (CORRECT - USE \`findProducts\`):** "Zaroor beta. Recipe batata hoon. Pehle main check kar leta hoon ki dal hai ya nahi..." (calls \`findProducts({query: "lentils"})\`)
+*   **You (CORRECT - CALL \`findProducts\`):** [Returns a function call for findProducts({query: "lentils"}) and no other text]
 *   **User:** "Hello"
 *   **You (CORRECT - NO TOOL):** "Namaste beta! Kaise ho? Kya seva kar sakta hoon tumhari?"
 
@@ -325,15 +332,23 @@ ${JSON.stringify(history.slice(-2))}`;
             toolConfig: { functionCallingConfig: { mode: FunctionCallingMode.AUTO } }
         });
 
-        const result = await chat.sendMessage(userMessageContent);
-        let response = result.response;
+        let result = await chat.sendMessage(userMessageContent);
         
-        let functionCalls = response.functionCalls();
-
-        while (functionCalls && functionCalls.length > 0) {
+        // Loop to handle multiple function calls from the model
+        while (true) {
+            const functionCalls = result.response.functionCalls();
+            
+            if (!functionCalls || functionCalls.length === 0) {
+                // No more function calls, so we can display the text
+                addMessage({ role: 'model', content: result.response.text() });
+                break;
+            }
+            
             console.log("AI wants to call functions:", functionCalls);
+            // Show a thinking message while we process tools
             addMessage({ role: 'model', content: 'एक मिनट बेटा, देख कर बताता हूँ...' });
             
+            // Call all functions the model wants to call
             const apiResponses = await Promise.all(
                 functionCalls.map(async (call) => {
                     const handler = functionCallHandlers[call.name];
@@ -346,6 +361,7 @@ ${JSON.stringify(history.slice(-2))}`;
                             },
                         };
                     }
+                    // If the function doesn't exist, return an error
                     return {
                         functionResponse: {
                             name: call.name,
@@ -356,12 +372,9 @@ ${JSON.stringify(history.slice(-2))}`;
             );
             
             // Send the function results back to the model
-            const toolResponseResult = await chat.sendMessage(apiResponses);
-            response = toolResponseResult.response;
-            functionCalls = response.functionCalls(); // Check if there are more function calls
+            result = await chat.sendMessage(apiResponses);
         }
-        
-        addMessage({ role: 'model', content: response.text() });
+
         generateSuggestions();
 
     } catch (error: any) {
@@ -446,7 +459,7 @@ ${JSON.stringify(history.slice(-2))}`;
                      )}
                 </div>
             ))}
-             {isAiResponding && (
+             {isAiResponding && chatHistory[chatHistory.length - 1]?.role === 'user' && (
                 <div className="flex justify-start items-end gap-2">
                      <div className="p-1.5 bg-primary/10 rounded-full mb-1">
                         <BrainCircuit className="w-6 h-6 text-primary"/>
@@ -505,5 +518,6 @@ ${JSON.stringify(history.slice(-2))}`;
     
 
     
+
 
 
