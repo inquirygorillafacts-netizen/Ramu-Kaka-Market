@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Product, UserProfile } from '@/lib/types';
-import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2 } from 'lucide-react';
+import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2, Sparkles } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -15,8 +15,9 @@ import { useChatHistory } from '@/hooks/use-chat-history';
 import { ChatMessage } from '@/lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, FunctionDeclaration, Tool, GenerationConfig, GenerativeModel } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, FunctionDeclaration, Tool, GenerationConfig, GenerativeModel, Content } from '@google/generative-ai';
 import { getGeminiApiKey } from '@/lib/gemini';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // --- Client-side AI Tools ---
 
@@ -64,10 +65,31 @@ const addToCart = (args: { productId: string, quantity: number }): any => {
     // cart management service that interacts with the user's session/account.
     // For this context, we will just confirm the action.
     console.log(`[addToCart tool] called with:`, args);
-    return { result: {
-        success: true,
-        message: `Added ${args.quantity} of product ${args.productId} to the cart.`
-    }};
+    // In a real app, this would interact with a cart state management library.
+    // We'll simulate this by logging to the console and returning a success message.
+     try {
+      const cart = JSON.parse(localStorage.getItem('ramukaka_cart') || '[]');
+      // This is a simplified logic. A real implementation would fetch product details.
+      const productToAdd = { id: args.productId, name: `Product ${args.productId}` }; 
+      
+      const existingItem = cart.find((item: any) => item.id === args.productId);
+      
+      if (existingItem) {
+        existingItem.quantity += args.quantity;
+      } else {
+        // Note: This is highly simplified. We don't have full product details here.
+        // The AI's response should guide the user to the product page or add a known item.
+        cart.push({ id: args.productId, quantity: args.quantity, name: `Item ${args.productId}` });
+      }
+      
+      localStorage.setItem('ramukaka_cart', JSON.stringify(cart));
+       return { result: {
+          success: true,
+          message: `Added ${args.quantity} of product ${args.productId} to the cart.`
+      }};
+    } catch (e) {
+      return { result: { success: false, message: 'Failed to add item to cart.' } };
+    }
 };
 
 const tools: Tool[] = [
@@ -115,16 +137,13 @@ export default function ChatPage() {
   const { toast } = useToast();
   const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
   
   const genAI = useRef<GoogleGenerativeAI | null>(null);
   const model = useRef<GenerativeModel | null>(null);
 
-  useEffect(() => {
-      const initAI = async () => {
-          const apiKey = await getGeminiApiKey();
-          if (apiKey) {
-              genAI.current = new GoogleGenerativeAI(apiKey);
-              const systemPrompt = `You are Ramu Kaka, a friendly, humble, and helpful shopkeeper for an online grocery store. Your personality is like a wise, friendly, and slightly humorous uncle from a village in India. You speak in "Hinglish" (a mix of Hindi and English), but keep it simple and easy to understand.
+  const systemPrompt = `You are Ramu Kaka, a friendly, humble, and helpful shopkeeper for an online grocery store. Your personality is like a wise, friendly, and slightly humorous uncle from a village in India. You speak in "Hinglish" (a mix of Hindi and English), but keep it simple and easy to understand.
 
 Your primary goals are:
 1.  **Help the user:** Answer their questions about products clearly.
@@ -145,18 +164,51 @@ Your primary goals are:
 *   **Language:** Mix Hindi and English naturally. Example: "हाँ बेटा, potatoes हैं। 25 rupaye kilo. Tokri mein daal doon?" (Yes son, potatoes are available. 25 rupees per kilo. Should I add them to the cart?).
 
 Start the conversation by greeting the user if the history is empty.`;
-              
+
+  const generateSuggestions = async () => {
+    if (!model.current) return;
+    setIsGeneratingSuggestions(true);
+    setSuggestions([]);
+    try {
+      const history: Content[] = chatHistory.map(msg => ({
+        role: msg.role,
+        parts: [{ text: msg.content }]
+      }));
+      
+      const prompt = `Based on the last message, suggest 3 short, relevant, one-line follow-up questions or actions for the user in a grocery store context. Speak as the user. Return a JSON array of strings. Example: ["What is the price of apples?", "Do you have milk?", "Show me some vegetables."]. Chat history:\n${JSON.stringify(history.slice(-2))}`;
+
+      const result = await model.current.generateContent(prompt);
+      const responseText = result.response.text();
+      const jsonResponse = JSON.parse(responseText.match(/\[.*\]/s)![0]);
+      setSuggestions(jsonResponse);
+    } catch (error) {
+      console.error("Failed to generate suggestions:", error);
+      setSuggestions([]); // Clear suggestions on error
+    } finally {
+      setIsGeneratingSuggestions(false);
+    }
+  };
+
+  useEffect(() => {
+      const initAI = async () => {
+          const apiKey = await getGeminiApiKey();
+          if (apiKey) {
+              genAI.current = new GoogleGenerativeAI(apiKey);
               model.current = genAI.current.getGenerativeModel({
                   model: 'gemini-1.5-flash-latest',
                   tools,
                   systemInstruction: systemPrompt,
               });
+              if(chatHistory.length === 0) {
+                 addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
+                 generateSuggestions();
+              }
           } else {
               toast({ variant: 'destructive', title: 'AI Error', description: 'Could not initialize AI. API key is missing.'});
           }
       };
       initAI();
-  }, [toast]);
+  }, [toast]); // Run only once
 
 
   useEffect(() => {
@@ -181,14 +233,25 @@ Start the conversation by greeting the user if the history is empty.`;
     if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatHistory]);
+  }, [chatHistory, suggestions]);
 
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
   const handleClearChat = () => {
     setHistory([]);
+    addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
   };
   
+  const handleSuggestionClick = (suggestion: string) => {
+    setChatInput(suggestion);
+    // Trigger form submission
+    const form = document.getElementById('chat-form') as HTMLFormElement;
+    if (form) {
+       // A little delay to let the user see the input being populated
+       setTimeout(() => form.requestSubmit(), 100);
+    }
+  };
+
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || isAiResponding || !model.current) return;
@@ -196,6 +259,7 @@ Start the conversation by greeting the user if the history is empty.`;
     const userMessageContent = chatInput;
     addMessage({ role: 'user', content: userMessageContent });
     setChatInput('');
+    setSuggestions([]); // Clear old suggestions
 
     setIsAiResponding(true);
 
@@ -204,7 +268,7 @@ Start the conversation by greeting the user if the history is empty.`;
             history: chatHistory.map(msg => ({
                 role: msg.role,
                 parts: [{ text: msg.content }]
-            }))
+            })),
         });
 
         const result = await chat.sendMessage(userMessageContent);
@@ -212,6 +276,7 @@ Start the conversation by greeting the user if the history is empty.`;
         
         const functionCalls = response.functionCalls();
         if (functionCalls && functionCalls.length > 0) {
+            addMessage({ role: 'model', content: 'एक मिनट बेटा, देख कर बताता हूँ...' });
             const call = functionCalls[0];
             const handler = functionCallHandlers[call.name];
             if (handler) {
@@ -229,6 +294,7 @@ Start the conversation by greeting the user if the history is empty.`;
         }
 
         addMessage({ role: 'model', content: response.text() });
+        generateSuggestions();
 
     } catch (error: any) {
         console.error("AI Error:", error);
@@ -324,8 +390,26 @@ Start the conversation by greeting the user if the history is empty.`;
              )}
         </main>
 
-        <footer className="p-3 border-t bg-card">
-            <form onSubmit={handleChatSubmit} className="flex items-center gap-2">
+        <footer className="p-3 border-t bg-card space-y-2">
+            <div className="px-1 h-8">
+              {isGeneratingSuggestions ? (
+                <div className="flex gap-2">
+                  <Skeleton className="h-8 w-28 rounded-full" />
+                  <Skeleton className="h-8 w-32 rounded-full" />
+                  <Skeleton className="h-8 w-24 rounded-full" />
+                </div>
+              ) : suggestions.length > 0 ? (
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                   {suggestions.map((s, i) => (
+                      <Button key={i} size="sm" variant="outline" className="rounded-full whitespace-nowrap" onClick={() => handleSuggestionClick(s)} disabled={isAiResponding}>
+                         <Sparkles className="w-3.5 h-3.5 mr-2 -ml-1 text-primary/80"/>
+                         {s}
+                      </Button>
+                   ))}
+                </div>
+              ) : null}
+            </div>
+            <form onSubmit={handleChatSubmit} id="chat-form" className="flex items-center gap-2">
                 <Input 
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
@@ -341,3 +425,5 @@ Start the conversation by greeting the user if the history is empty.`;
     </div>
   )
 }
+
+    
