@@ -4,6 +4,8 @@ import Razorpay from 'razorpay';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
+export const dynamic = 'force-dynamic';
+
 let keyCache: { key_id: string; key_secret: string } | null = null;
 
 async function getRazorpayKeys() {
@@ -59,5 +61,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Error creating order', details: error.message }, { status: 500 });
   }
 }
-
     
