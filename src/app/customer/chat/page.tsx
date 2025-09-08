@@ -160,14 +160,23 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         let i = 0;
         typingIntervalRef.current = setInterval(() => {
             if (i < responseText.length) {
-                 setHistory(prev => {
-                    const newHistory = [...prev];
-                    const lastMessage = newHistory[newHistory.length - 1];
-                    if (lastMessage && lastMessage.role === 'model') {
-                        lastMessage.content = responseText.substring(0, i + 1);
-                    }
-                    return newHistory;
-                });
+                 const currentHistory = [...chatHistory, {role: 'user', content: userMessageContent}];
+                 const lastMessageIndex = currentHistory.length;
+                 const newHistory = [...currentHistory];
+                 if(newHistory[lastMessageIndex]) {
+                    newHistory[lastMessageIndex].content = responseText.substring(0, i + 1);
+                 } else {
+                    newHistory.push({ role: 'model', content: responseText.substring(0, i + 1) });
+                 }
+
+                 const finalHistory = [...chatHistory];
+                 const lastMsg = finalHistory[finalHistory.length - 1];
+                 if (lastMsg && lastMsg.role === 'model') {
+                     lastMsg.content = responseText.substring(0, i + 1);
+                     setHistory(finalHistory);
+                 }
+
+
                 i++;
             } else {
                stopResponding();
@@ -177,7 +186,11 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
 
     } catch (error: any) {
         console.error("AI Error:", error);
-        toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue. Please try again later.' });
+        if (error.message?.includes("should be with role 'user'")) {
+             toast({ variant: 'destructive', title: 'AI Error', description: "Sorry, I got a bit confused. Could you please send your message again?" });
+        } else {
+            toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue. Please try again later.' });
+        }
         addMessage({ role: 'model', content: 'माफ़ करना बेटा, मेरा दिमाग थोड़ा गरम हो गया है। आप थोड़ी देर बाद फिर से प्रयास करें।' });
         setIsAiResponding(false);
     }
@@ -293,5 +306,3 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     </div>
   )
 }
-
-    
