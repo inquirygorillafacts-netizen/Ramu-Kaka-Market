@@ -168,8 +168,6 @@ export default function ChatPage() {
   const { toast } = useToast();
   const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
   
   const genAI = useRef<GoogleGenerativeAI | null>(null);
   const model = useRef<GenerativeModel | null>(null);
@@ -212,35 +210,6 @@ Your primary goals are:
 
 Start the conversation by greeting the user if the history is empty.`;
 
-  const generateSuggestions = async () => {
-    if (!model.current) return;
-    setIsGeneratingSuggestions(true);
-    setSuggestions([]);
-    try {
-      const history: Content[] = chatHistory.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.content }]
-      }));
-      
-      const prompt = `Based on our last conversation, suggest 3 short, relevant, one-line follow-up questions or actions for the user in our grocery store chat. Speak as the user. The user might want to ask about other products, add items to cart, or ask for a recipe. Return ONLY a valid JSON array of strings. Example: ["What is the price of apples?", "Do you have milk?", "Add 1kg onions to my cart."].
-
-Current Conversation:
-${JSON.stringify(history.slice(-2))}`;
-
-      // Use a different model instance for suggestions to not interfere with the main chat
-       const suggestionModel = genAI.current!.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-       const result = await suggestionModel.generateContent(prompt);
-       const responseText = result.response.text();
-       const jsonResponse = JSON.parse(responseText.match(/\[.*\]/s)![0]);
-       setSuggestions(jsonResponse);
-    } catch (error) {
-      console.error("Failed to generate suggestions:", error);
-      setSuggestions([]); // Clear suggestions on error
-    } finally {
-      setIsGeneratingSuggestions(false);
-    }
-  };
-
   useEffect(() => {
       const initAI = async () => {
           const apiKey = await getGeminiApiKey();
@@ -256,7 +225,6 @@ ${JSON.stringify(history.slice(-2))}`;
               });
               if(chatHistory.length === 0) {
                  addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
-                 generateSuggestions();
               }
           } else {
               toast({ variant: 'destructive', title: 'AI Error', description: 'Could not initialize AI. API key is missing.'});
@@ -289,7 +257,7 @@ ${JSON.stringify(history.slice(-2))}`;
     if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatHistory, suggestions]);
+  }, [chatHistory]);
 
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
@@ -298,19 +266,6 @@ ${JSON.stringify(history.slice(-2))}`;
     addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
   };
   
-  const handleSuggestionClick = (suggestion: string) => {
-    setChatInput(suggestion);
-    // Trigger form submission
-    const form = document.getElementById('chat-form') as HTMLFormElement;
-    if (form) {
-       // A little delay to let the user see the input being populated
-       setTimeout(() => {
-        const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
-        submitButton?.click();
-       }, 100);
-    }
-  };
-
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || isAiResponding || !model.current) return;
@@ -318,7 +273,6 @@ ${JSON.stringify(history.slice(-2))}`;
     const userMessageContent = chatInput;
     addMessage({ role: 'user', content: userMessageContent });
     setChatInput('');
-    setSuggestions([]); // Clear old suggestions
 
     setIsAiResponding(true);
 
@@ -328,27 +282,22 @@ ${JSON.stringify(history.slice(-2))}`;
                 role: msg.role,
                 parts: [{ text: msg.content }]
             })),
-            // Set tool mode to auto
             toolConfig: { functionCallingConfig: { mode: FunctionCallingMode.AUTO } }
         });
 
         let result = await chat.sendMessage(userMessageContent);
         
-        // Loop to handle multiple function calls from the model
         while (true) {
             const functionCalls = result.response.functionCalls();
             
             if (!functionCalls || functionCalls.length === 0) {
-                // No more function calls, so we can display the text
                 addMessage({ role: 'model', content: result.response.text() });
                 break;
             }
             
             console.log("AI wants to call functions:", functionCalls);
-            // Show a thinking message while we process tools
             addMessage({ role: 'model', content: 'एक मिनट बेटा, देख कर बताता हूँ...' });
             
-            // Call all functions the model wants to call
             const apiResponses = await Promise.all(
                 functionCalls.map(async (call) => {
                     const handler = functionCallHandlers[call.name];
@@ -361,7 +310,6 @@ ${JSON.stringify(history.slice(-2))}`;
                             },
                         };
                     }
-                    // If the function doesn't exist, return an error
                     return {
                         functionResponse: {
                             name: call.name,
@@ -371,11 +319,8 @@ ${JSON.stringify(history.slice(-2))}`;
                 })
             );
             
-            // Send the function results back to the model
             result = await chat.sendMessage(apiResponses);
         }
-
-        generateSuggestions();
 
     } catch (error: any) {
         console.error("AI Error:", error);
@@ -472,24 +417,6 @@ ${JSON.stringify(history.slice(-2))}`;
         </main>
 
         <footer className="p-3 border-t bg-card space-y-2">
-            <div className="px-1 h-8">
-              {isGeneratingSuggestions ? (
-                <div className="flex gap-2">
-                  <Skeleton className="h-8 w-28 rounded-full" />
-                  <Skeleton className="h-8 w-32 rounded-full" />
-                  <Skeleton className="h-8 w-24 rounded-full" />
-                </div>
-              ) : suggestions.length > 0 ? (
-                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                   {suggestions.map((s, i) => (
-                      <Button key={i} size="sm" variant="outline" className="rounded-full whitespace-nowrap" onClick={() => handleSuggestionClick(s)} disabled={isAiResponding}>
-                         <Sparkles className="w-3.5 h-3.5 mr-2 -ml-1 text-primary/80"/>
-                         {s}
-                      </Button>
-                   ))}
-                </div>
-              ) : null}
-            </div>
             <form onSubmit={handleChatSubmit} id="chat-form" className="flex items-center gap-2">
                 <Input 
                     value={chatInput}
@@ -503,21 +430,13 @@ ${JSON.stringify(history.slice(-2))}`;
                 </Button>
             </form>
         </footer>
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-      `}</style>
     </div>
   )
 }
     
 
     
+
 
 
 
