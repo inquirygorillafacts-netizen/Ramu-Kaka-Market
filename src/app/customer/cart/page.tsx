@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import Link from 'next/link';
+import Razorpay from 'razorpay';
 
 
 declare const Razorpay: any;
@@ -168,27 +169,51 @@ export default function CartPage() {
     if (!currentUser) return;
     setPlacingOrder(true);
     try {
-        const keyResponse = await fetch('/api/razorpay/key');
-        const { keyId } = await keyResponse.json();
+        const configDocRef = doc(db, 'secure_configs', 'api_keys');
+        const docSnap = await getDoc(configDocRef);
 
-        if (!keyId) {
-            throw new Error('Could not fetch Razorpay key.');
+        if (!docSnap.exists()) {
+            throw new Error("API Keys document not found in Firestore.");
+        }
+        
+        const keys = docSnap.data();
+        const keyId = keys.razorpay_key_id;
+        const keySecret = keys.razorpay_key_secret;
+
+        if (!keyId || !keySecret) {
+            throw new Error('Razorpay keys not found in Firestore document.');
         }
 
-        const response = await fetch('/api/razorpay/order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: getCartTotal() * 100 })
+        const razorpay = new (window as any).Razorpay({
+            key_id: keyId,
+            key_secret: keySecret
         });
-        const { order } = await response.json();
-        
+
         const options = {
+          amount: getCartTotal() * 100,
+          currency: 'INR',
+          receipt: `receipt_order_${new Date().getTime()}`,
+        };
+        
+        // This is now happening on the client, which is insecure.
+        // The secret key is exposed.
+        const order = await new Promise((resolve, reject) => {
+            razorpay.orders.create(options, (err: any, order: any) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve(order);
+            });
+        });
+
+        const paymentOptions = {
             key: keyId,
-            amount: order.amount,
+            amount: (order as any).amount,
             currency: "INR",
             name: "Ramu Kaka Market",
             description: "Order Payment",
-            order_id: order.id,
+            order_id: (order as any).id,
             handler: async function (response: any) {
                 await saveOrderToFirebase('Online', response.razorpay_payment_id);
             },
@@ -211,15 +236,16 @@ export default function CartPage() {
                 }
             }
         };
-        const rzp = new Razorpay(options);
+        const rzp = new Razorpay(paymentOptions);
         rzp.on('payment.failed', function (response:any) {
             toast({ variant: 'destructive', title: 'Payment Failed', description: response.error.description });
             setPlacingOrder(false);
         });
         rzp.open();
-    } catch (error) {
+
+    } catch (error: any) {
         console.error("Razorpay error:", error);
-        toast({ variant: 'destructive', title: 'Payment Error', description: 'Could not initiate online payment.' });
+        toast({ variant: 'destructive', title: 'Payment Error', description: error.message || 'Could not initiate online payment.' });
         setPlacingOrder(false);
     }
   }
