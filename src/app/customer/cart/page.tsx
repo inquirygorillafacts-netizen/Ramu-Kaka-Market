@@ -25,8 +25,6 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import Link from 'next/link';
-import Razorpay from 'razorpay';
-
 
 declare const Razorpay: any;
 
@@ -183,37 +181,34 @@ export default function CartPage() {
         if (!keyId || !keySecret) {
             throw new Error('Razorpay keys not found in Firestore document.');
         }
-
-        const razorpay = new (window as any).Razorpay({
-            key_id: keyId,
-            key_secret: keySecret
-        });
-
-        const options = {
-          amount: getCartTotal() * 100,
-          currency: 'INR',
-          receipt: `receipt_order_${new Date().getTime()}`,
-        };
         
-        // This is now happening on the client, which is insecure.
-        // The secret key is exposed.
-        const order = await new Promise((resolve, reject) => {
-            razorpay.orders.create(options, (err: any, order: any) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve(order);
-            });
+        const orderResponse = await fetch('https://api.razorpay.com/v1/orders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic ' + btoa(`${keyId}:${keySecret}`)
+            },
+            body: JSON.stringify({
+                amount: getCartTotal() * 100,
+                currency: 'INR',
+                receipt: `receipt_order_${new Date().getTime()}`,
+            })
         });
+
+        if (!orderResponse.ok) {
+            const errorBody = await orderResponse.json();
+            throw new Error(errorBody.error.description || 'Failed to create Razorpay order.');
+        }
+
+        const order = await orderResponse.json();
 
         const paymentOptions = {
             key: keyId,
-            amount: (order as any).amount,
+            amount: order.amount,
             currency: "INR",
             name: "Ramu Kaka Market",
             description: "Order Payment",
-            order_id: (order as any).id,
+            order_id: order.id,
             handler: async function (response: any) {
                 await saveOrderToFirebase('Online', response.razorpay_payment_id);
             },
@@ -236,7 +231,8 @@ export default function CartPage() {
                 }
             }
         };
-        const rzp = new Razorpay(paymentOptions);
+        
+        const rzp = new (window as any).Razorpay(paymentOptions);
         rzp.on('payment.failed', function (response:any) {
             toast({ variant: 'destructive', title: 'Payment Failed', description: response.error.description });
             setPlacingOrder(false);
