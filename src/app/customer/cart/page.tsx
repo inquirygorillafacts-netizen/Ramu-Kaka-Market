@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -28,29 +29,6 @@ import Link from 'next/link';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 declare const Razorpay: any;
-
-// This function is for client-side use only. It's not secure for production.
-async function getRazorpayKeys() {
-    try {
-        const configDocRef = doc(db, 'secure_configs', 'api_keys');
-        const docSnap = await getDoc(configDocRef);
-
-        if (docSnap.exists()) {
-            const keys = docSnap.data();
-            if (keys.razorpay_key_id && keys.razorpay_key_secret) {
-                return { 
-                    keyId: keys.razorpay_key_id, 
-                    keySecret: keys.razorpay_key_secret 
-                };
-            }
-        }
-        throw new Error('Razorpay keys not found in Firestore.');
-    } catch (error) {
-        console.error("Error fetching Razorpay keys from Firestore:", error);
-        return null;
-    }
-}
-
 
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -279,47 +257,34 @@ Based on this, you must generate a short, friendly, and enticing suggestion in H
     if (!currentUser) return;
     setPlacingOrder(true);
     try {
-        const keys = await getRazorpayKeys();
-        if (!keys) {
-            throw new Error('Could not fetch Razorpay keys from the database.');
-        }
-
-        const { keyId, keySecret } = keys;
-
-        // WARNING: Using a proxy is required for security.
-        // This is a temporary, insecure solution for demonstration.
-        // A CORS proxy can be used for development, but is not for production.
-        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-        const razorpayApiUrl = 'https://api.razorpay.com/v1/orders';
-
-        const orderResponse = await fetch(proxyUrl + razorpayApiUrl, {
+        // Step 1: Call our backend to create a Razorpay order
+        const createOrderResponse = await fetch('/api/razorpay/order', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Basic ' + btoa(`${keyId}:${keySecret}`)
-            },
-            body: JSON.stringify({
-                amount: getCartTotal() * 100,
-                currency: 'INR',
-                receipt: `receipt_order_${new Date().getTime()}`,
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: getCartTotal() }),
         });
 
-        if (!orderResponse.ok) {
-            const errorBody = await orderResponse.json();
-            throw new Error(errorBody.error?.description || 'Failed to create Razorpay order.');
+        if (!createOrderResponse.ok) {
+            const errorBody = await createOrderResponse.json();
+            throw new Error(errorBody.error || 'Failed to create Razorpay order.');
         }
 
-        const order = await orderResponse.json();
+        const orderDetails = await createOrderResponse.json();
+
+        const { order_id, amount, currency, key_id } = orderDetails;
         
+        // Step 2: Open Razorpay Checkout popup
         const paymentOptions = {
-            key: keyId,
-            amount: order.amount,
-            currency: "INR",
+            key: key_id,
+            amount: amount,
+            currency: currency,
             name: "Ramu Kaka Market",
             description: "Order Payment",
-            order_id: order.id,
+            order_id: order_id,
             handler: async function (response: any) {
+                // Step 3: On success, verify payment and save order
+                // For now, we will assume verification is successful on the client for simplicity
+                // In production, razorpay_signature should be sent to a backend endpoint for verification
                 await saveOrderToFirebase('Online', response.razorpay_payment_id);
             },
             prefill: {
@@ -351,7 +316,7 @@ Based on this, you must generate a short, friendly, and enticing suggestion in H
 
     } catch (error: any) {
         console.error("Razorpay error:", error);
-        toast({ variant: 'destructive', title: 'Payment Error', description: error.message || 'Could not initiate online payment. A CORS proxy might be needed.' });
+        toast({ variant: 'destructive', title: 'Payment Error', description: error.message || 'Could not initiate online payment.' });
         setPlacingOrder(false);
     }
   }
