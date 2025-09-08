@@ -1,20 +1,31 @@
 
 'use server';
 
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from './firebase';
+
 /**
- * Fetches the Gemini API key directly from the environment variables.
- * This is a more reliable method for the frontend as it avoids Firestore
- * permission or network issues.
- *
- * The key should be stored in a `.env.local` file with the name `NEXT_PUBLIC_GEMINI_API_KEY`.
+ * Fetches the Gemini API key from Firestore on every call.
+ * This ensures that the latest key from the database is always used.
+ * It reads from the 'secure_configs/api_keys' document.
  */
 export async function getGeminiApiKey(): Promise<string | null> {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    try {
+        const configDocRef = doc(db, 'secure_configs', 'api_keys');
+        const docSnap = await getDoc(configDocRef);
 
-    if (apiKey) {
-        return apiKey;
-    } else {
-        console.error("Gemini API key not found in environment variables (NEXT_PUBLIC_GEMINI_API_KEY).");
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            // Ensure the field name matches what's in Firestore.
+            const apiKey = data.gemini_key; 
+            if (apiKey) {
+                return apiKey;
+            }
+        }
+        console.error("Gemini API key ('gemini_key') not found in Firestore document 'secure_configs/api_keys'.");
+        return null;
+    } catch (error) {
+        console.error("Error fetching Gemini API key from Firestore:", error);
         return null;
     }
 }
