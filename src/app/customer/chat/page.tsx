@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile } from '@/lib/types';
-import { Loader2, Send, BrainCircuit, ArrowLeft, Square, MessageSquare } from 'lucide-react';
+import { Loader2, Send, BrainCircuit, ArrowLeft, Square } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -120,31 +120,27 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     if (!chatInput.trim() || isAiResponding || !chatModel.current) return;
 
     const userMessageContent = chatInput;
-    addMessage({ role: 'user', content: userMessageContent });
+    
+    // Add user message and AI placeholder immediately
+    const newHistoryWithUserAndPlaceholder = [
+        ...chatHistory,
+        { role: 'user', content: userMessageContent },
+        { role: 'model', content: '' }
+    ];
+    setHistory(newHistoryWithUserAndPlaceholder);
     setChatInput('');
     setIsAiResponding(true);
-    addMessage({ role: 'model', content: '' });
 
     try {
-        let historyForAI: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
-        
-        // Use functional update to get the latest history
-        setHistory(currentHistory => {
-            historyForAI = currentHistory
-                .filter(msg => msg.content) // Exclude empty placeholder for history
-                .map(msg => ({
-                    role: msg.role as 'user' | 'model',
-                    parts: [{ text: msg.content }]
-                }));
+        const historyForAI = newHistoryWithUserAndPlaceholder
+            .slice(0, -1) // Remove the AI placeholder for the API call
+            .filter(msg => msg.content)
+            .map(msg => ({
+                role: msg.role as 'user' | 'model',
+                parts: [{ text: msg.content }]
+            }));
 
-            // Ensure history starts with a user message for the API
-            if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
-                historyForAI = historyForAI.slice(1);
-            }
-            return currentHistory; // No change to state here
-        });
-
-        const chatSession = chatModel.current.startChat({ history: historyForAI.slice(0, -1) });
+        const chatSession = chatModel.current.startChat({ history: historyForAI });
         const result = await chatSession.sendMessage(userMessageContent);
         const response = result.response;
         const responseText = response.text();
@@ -169,7 +165,8 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     } catch (error: any) {
         console.error("AI Error:", error);
         
-        setHistory(prev => prev.slice(0, -1)); // Remove only the AI's empty placeholder
+        // On error, remove only the AI's empty placeholder
+        setHistory(prev => prev.slice(0, -1)); 
         
         if (error.message?.includes("503") || error.message?.includes("overloaded")) {
              toast({ variant: 'destructive', title: 'AI Busy', description: "रामू काका अभी बहुत व्यस्त हैं, कृपया कुछ क्षण बाद फिर से प्रयास करें।" });
