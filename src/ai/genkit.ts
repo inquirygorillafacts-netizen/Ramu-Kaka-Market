@@ -16,7 +16,7 @@
 import {genkit, type GenkitErrorCode, type GenkitError} from 'genkit';
 import {googleAI, type GoogleAIGeminiModel} from '@genkit-ai/googleai';
 import {firebase} from '@genkit-ai/firebase';
-import {dotprompt} from 'genkit/plugins/dotprompt';
+import {dotprompt} from '@genkit-ai/dotprompt';
 import {doc, getDoc} from 'firebase/firestore';
 import {db} from '@/lib/firebase';
 import {z} from 'genkit';
