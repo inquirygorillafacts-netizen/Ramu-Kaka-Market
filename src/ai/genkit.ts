@@ -1,6 +1,6 @@
 
 import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai';
+import {googleAI} from '@gen-ai/googleai';
 import {getDoc, doc} from 'firebase/firestore';
 import {db} from '@/lib/firebase';
 
@@ -8,15 +8,13 @@ import {db} from '@/lib/firebase';
 // It prevents reading from Firestore on every single API call.
 let keyCache: {
     gemini_key: string;
-    razorpay_key_id: string;
-    razorpay_key_secret: string;
 } | null = null;
 
 /**
  * Fetches the API keys from a secure document in Firestore.
  * Caches the keys after the first fetch to avoid repeated database reads.
  */
-async function getApiKeys(): Promise<{ gemini_key: string, razorpay_key_id: string, razorpay_key_secret: string }> {
+async function getApiKeys(): Promise<{ gemini_key: string }> {
     if (keyCache) {
         return keyCache;
     }
@@ -33,8 +31,6 @@ async function getApiKeys(): Promise<{ gemini_key: string, razorpay_key_id: stri
             // Store the fetched keys in the cache
             keyCache = {
                 gemini_key: data.gemini_key,
-                razorpay_key_id: data.razorpay_key_id || '',
-                razorpay_key_secret: data.razorpay_key_secret || '',
             };
             
             // Optional: Clear cache after some time (e.g., 1 hour) to refetch keys

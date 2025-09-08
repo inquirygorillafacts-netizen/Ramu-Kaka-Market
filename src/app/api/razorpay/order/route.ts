@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 let keyCache: { key_id: string; key_secret: string } | null = null;
 
 async function getRazorpayKeys() {
+  // Simple in-memory cache for the duration of the serverless function execution
   if (keyCache) {
     return keyCache;
   }
@@ -23,15 +24,13 @@ async function getRazorpayKeys() {
           key_id: data.razorpay_key_id,
           key_secret: data.razorpay_key_secret,
         };
-        // Optional: In a real app, you might want to expire this cache.
-        // setTimeout(() => { keyCache = null; }, 3600 * 1000); 
         return keyCache;
       }
     }
     throw new Error('Razorpay keys not found in Firestore.');
   } catch (error) {
     console.error('Error fetching Razorpay keys from Firestore:', error);
-    throw error;
+    throw error; // Re-throw the error to be caught by the main handler
   }
 }
 
@@ -53,6 +52,10 @@ export async function POST(req: NextRequest) {
     };
     
     const order = await razorpay.orders.create(options);
+    
+    if (!order) {
+        return NextResponse.json({ error: 'Order creation failed' }, { status: 500 });
+    }
     
     return NextResponse.json({ order });
 
