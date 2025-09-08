@@ -151,7 +151,9 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
             responseText += chunkText;
             setHistory(prev => {
                 const newHistory = [...prev];
-                newHistory[newHistory.length - 1].content = responseText;
+                if (newHistory.length > 0 && newHistory[newHistory.length - 1].role === 'model') {
+                    newHistory[newHistory.length - 1].content = responseText;
+                }
                 return newHistory;
             });
         }
@@ -237,7 +239,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                      )}
                 </div>
             ))}
-             {isAiResponding && chatHistory[chatHistory.length - 1]?.role === 'user' && (
+             {isAiResponding && chatHistory.length > 0 && chatHistory[chatHistory.length - 1]?.role === 'model' && chatHistory[chatHistory.length -1].content === '' && (
                 <div className="flex justify-start items-end gap-2">
                      <div className="p-1.5 bg-primary/10 rounded-full mb-1">
                         <BrainCircuit className="w-6 h-6 text-primary"/>
@@ -266,4 +268,6 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     </div>
   )
 }
+    
+
     
