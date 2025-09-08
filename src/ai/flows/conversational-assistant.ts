@@ -13,9 +13,19 @@ const ConversationalAssistantInputSchema = z.object({
   prompt: z.string(),
 });
 
-export const conversationalAssistant = ai.defineFlow(
+export type ConversationalAssistantInput = z.infer<typeof ConversationalAssistantInputSchema>;
+
+const ConversationalAssistantOutputSchema = z.string();
+export type ConversationalAssistantOutput = z.infer<typeof ConversationalAssistantOutputSchema>;
+
+export async function conversationalAssistant(input: ConversationalAssistantInput): Promise<ConversationalAssistantOutput> {
+  return conversationalAssistantFlow(input);
+}
+
+
+const conversationalAssistantFlow = ai.defineFlow(
   {
-    name: 'conversationalAssistant',
+    name: 'conversationalAssistantFlow',
     inputSchema: ConversationalAssistantInputSchema,
     outputSchema: z.string(),
   },

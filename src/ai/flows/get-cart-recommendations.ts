@@ -12,12 +12,20 @@ const GetCartRecommendationsInputSchema = z.object({
   userProfile: z.custom<Partial<UserProfile>>(),
   cart: z.custom<CartItem[]>(),
 });
+export type GetCartRecommendationsInput = z.infer<typeof GetCartRecommendationsInputSchema>;
 
-export const getCartRecommendations = ai.defineFlow(
+const GetCartRecommendationsOutputSchema = z.string();
+export type GetCartRecommendationsOutput = z.infer<typeof GetCartRecommendationsOutputSchema>;
+
+export async function getCartRecommendations(input: GetCartRecommendationsInput): Promise<GetCartRecommendationsOutput> {
+  return getCartRecommendationsFlow(input);
+}
+
+const getCartRecommendationsFlow = ai.defineFlow(
   {
-    name: 'getCartRecommendations',
+    name: 'getCartRecommendationsFlow',
     inputSchema: GetCartRecommendationsInputSchema,
-    outputSchema: z.string(),
+    outputSchema: GetCartRecommendationsOutputSchema,
   },
   async ({userProfile, cart}) => {
     // Get all products from the database.
