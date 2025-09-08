@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Product, CartItem, UserProfile } from '@/lib/types';
@@ -157,6 +157,12 @@ Based on this, you must generate a short, friendly, and enticing suggestion in H
   useEffect(() => {
       loadData();
   }, [loadData]);
+  
+  // Create a memoized string of cart product IDs.
+  // This will only change if a product is added or removed, not on quantity change.
+  const cartProductIds = useMemo(() => {
+    return cart.map(item => item.id).sort().join(',');
+  }, [cart]);
 
 
   useEffect(() => {
@@ -186,13 +192,21 @@ Based on this, you must generate a short, friendly, and enticing suggestion in H
     };
 
     generateSuggestion();
-  }, [cart, allProducts, suggestion]);
+    // This effect now depends on `cartProductIds`. It will only re-run when an
+    // item is added or removed, not when a quantity changes.
+  }, [cartProductIds, allProducts, suggestion]);
 
   const updateCart = (newCart: CartItem[]) => {
+    const oldProductIds = cart.map(item => item.id).sort().join(',');
+    const newProductIds = newCart.map(item => item.id).sort().join(',');
+
     setCart(newCart);
     localStorage.setItem('ramukaka_cart', JSON.stringify(newCart));
-    // Reset suggestion when cart changes
-    setSuggestion(null);
+    
+    // Reset suggestion only if the list of products has changed.
+    if (oldProductIds !== newProductIds) {
+      setSuggestion(null);
+    }
   };
 
   const handleQuantityChange = (productId: string, quantity: number) => {
@@ -630,3 +644,5 @@ Based on this, you must generate a short, friendly, and enticing suggestion in H
     </div>
   );
 }
+
+    
