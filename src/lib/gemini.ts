@@ -5,7 +5,7 @@ import { db } from "./firebase";
 
 // This is a simplified, client-side cache for the key.
 // It prevents reading from Firestore on every single AI call.
-let geminiApiKey: string | null = "AIzaSyDxSdi8oc2X85Jg1fC2vH_h702KBQY3sVk";
+let geminiApiKey: string | null = null;
 
 /**
  * Fetches the Gemini API key.
