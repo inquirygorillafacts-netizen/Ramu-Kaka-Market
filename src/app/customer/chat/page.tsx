@@ -199,41 +199,38 @@ Your primary goals are:
 *   **Helpful & Friendly:** "बताओ बेटा, मैं तुम्हारी क्या मदद कर सकता हूँ?" (Tell me son, how can I help you?).
 *   **Language Style:** Mix Hindi and English naturally. Example: "हाँ बेटा, potatoes हैं। 25 rupaye kilo. Tokri mein daal doon?" (Yes son, potatoes are available. 25 rupees per kilo. Should I add them to the cart?).
 
-**Scenario Example:**
-*   **User:** "Hi Ramu Kaka, what should I make for dinner?"
-*   **You (CORRECT - NO TOOL):** "Namaste beta! How about some delicious Dal Makhani and Garlic Naan? It's easy and very tasty. Recipe chahiye?"
-*   **User:** "Yes, and do you have lentils?"
-*   **You (CORRECT - Use \`findProducts\`):** First, you add the message "एक मिनट बेटा...". Then, your response to the system is ONLY the function call object for \`findProducts({query: "lentils"})\`.
-*   **User:** "Hello"
-*   **You (CORRECT - NO TOOL):** "Namaste beta! Kaise ho? Kya seva kar sakta hoon tumhari?"
-
 Start the conversation by greeting the user if the history is empty.
 `;
 
   useEffect(() => {
-      const initAI = async () => {
-          const apiKey = await getGeminiApiKey();
-          if (apiKey) {
-              genAI.current = new GoogleGenerativeAI(apiKey);
-              model.current = genAI.current.getGenerativeModel({
-                  model: 'gemini-1.5-flash-latest',
-                  tools,
-                  systemInstruction: {
-                    role: "system",
-                    parts: [{ text: systemPrompt }]
-                  },
-              });
-              if(chatHistory.length === 0) {
-                 addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
-              }
-              setIsModelReady(true);
-          } else {
-              toast({ variant: 'destructive', title: 'AI Error', description: 'Could not initialize AI. API key is missing.'});
-              setIsModelReady(false);
+    const initAI = async () => {
+      try {
+        const apiKey = await getGeminiApiKey();
+        if (apiKey) {
+          genAI.current = new GoogleGenerativeAI(apiKey);
+          model.current = genAI.current.getGenerativeModel({
+            model: 'gemini-1.5-flash-latest',
+            tools,
+            systemInstruction: {
+              role: "system",
+              parts: [{ text: systemPrompt }]
+            },
+          });
+          if (chatHistory.length === 0) {
+            addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
           }
-      };
-      initAI();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+          setIsModelReady(true);
+        } else {
+          throw new Error('API key is missing.');
+        }
+      } catch (error) {
+        console.error("AI Init Error:", error);
+        toast({ variant: 'destructive', title: 'AI Error', description: 'Could not initialize AI. Please check API Key and refresh.' });
+        setIsModelReady(false);
+      }
+    };
+    initAI();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -439,12 +436,3 @@ Start the conversation by greeting the user if the history is empty.
   )
 }
     
-
-    
-
-
-
-
-
-
-
