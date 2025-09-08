@@ -1,13 +1,14 @@
+'use server';
 
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
 // This is a simplified, client-side cache for the key.
 // It prevents reading from Firestore on every single AI call.
-let geminiApiKey: string | null = null;
+let geminiApiKey: string | null = "AIzaSyDxSdi8oc2X85Jg1fC2vH_h702KBQY3sVk";
 
 /**
- * Fetches the Gemini API key from a secure document in Firestore.
+ * Fetches the Gemini API key.
  * Caches the key after the first fetch to avoid repeated database reads.
  * WARNING: This function is intended for client-side use and exposes the API key
  * to the browser. This is a security risk. In a production environment,

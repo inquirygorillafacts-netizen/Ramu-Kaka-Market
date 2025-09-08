@@ -4,19 +4,106 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { UserProfile } from '@/lib/types';
+import { Product, UserProfile } from '@/lib/types';
 import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, getDocs } from 'firebase/firestore';
 import { useChatHistory } from '@/hooks/use-chat-history';
 import { ChatMessage } from '@/lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
-import {runFlow} from '@genkit-ai/next/client';
-import {conversationalAssistant} from '@/ai/flows/conversational-assistant';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, FunctionDeclaration, Tool, GenerationConfig, GenerativeModel } from '@google/generative-ai';
+import { getGeminiApiKey } from '@/lib/gemini';
+
+// --- Client-side AI Tools ---
+
+// 1. Find Products Tool
+const findProducts = async (args: { query: string }): Promise<any> => {
+    console.log(`[findProducts tool] called with query: "${args.query}"`);
+    const productsRef = collection(db, 'products');
+    const q = query(productsRef);
+    const querySnapshot = await getDocs(q);
+    const allProducts = querySnapshot.docs.map(
+      (doc) => ({...doc.data(), id: doc.id} as Product)
+    );
+    
+    const lowerCaseQuery = args.query.toLowerCase();
+    const searchTerms = lowerCaseQuery.split(' ').filter(term => term.length > 1);
+
+    const matchedProducts = allProducts.filter(product => {
+        const productName = product.name.toLowerCase();
+        const keywords = product.keywords?.map(k => k.toLowerCase()) || [];
+
+        return searchTerms.some(term => 
+            productName.includes(term) || keywords.some(kw => kw.includes(term))
+        );
+    }).slice(0, 5);
+
+    console.log(`[findProducts tool] found ${matchedProducts.length} products.`);
+
+    if (matchedProducts.length === 0) {
+        return { result: "No products found matching that query." };
+    }
+
+    return { result: matchedProducts.map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        discountPrice: p.discountPrice,
+        unit: p.unit,
+        unitQuantity: p.unitQuantity,
+    }))};
+};
+
+// 2. Add to Cart Tool
+const addToCart = (args: { productId: string, quantity: number }): any => {
+    // This is a placeholder. In a real app, you would have a robust
+    // cart management service that interacts with the user's session/account.
+    // For this context, we will just confirm the action.
+    console.log(`[addToCart tool] called with:`, args);
+    return { result: {
+        success: true,
+        message: `Added ${args.quantity} of product ${args.productId} to the cart.`
+    }};
+};
+
+const tools: Tool[] = [
+    {
+        functionDeclarations: [
+            {
+                name: "findProducts",
+                description: "Finds products available in the store based on a search query. Use this tool to answer any questions about product availability, price, or details.",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        query: { type: "STRING", description: "The user's search query for products." }
+                    },
+                    required: ["query"]
+                }
+            },
+            {
+                name: "addToCart",
+                description: "Adds a specified quantity of a product to the user's shopping cart. Use this when the user explicitly asks to add an item to their cart.",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        productId: { type: "STRING", description: "The unique ID of the product to add." },
+                        quantity: { type: "NUMBER", description: "The quantity of the product to add." }
+                    },
+                    required: ["productId", "quantity"]
+                }
+            }
+        ]
+    }
+];
+
+const functionCallHandlers: Record<string, Function> = {
+    findProducts,
+    addToCart
+};
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -29,12 +116,48 @@ export default function ChatPage() {
   const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
-  const historyRef = useRef(chatHistory);
-  useEffect(() => {
-    historyRef.current = chatHistory;
-  }, [chatHistory]);
+  const genAI = useRef<GoogleGenerativeAI | null>(null);
+  const model = useRef<GenerativeModel | null>(null);
 
-  const [streamingResponse, setStreamingResponse] = useState('');
+  useEffect(() => {
+      const initAI = async () => {
+          const apiKey = await getGeminiApiKey();
+          if (apiKey) {
+              genAI.current = new GoogleGenerativeAI(apiKey);
+              const systemPrompt = `You are Ramu Kaka, a friendly, humble, and helpful shopkeeper for an online grocery store. Your personality is like a wise, friendly, and slightly humorous uncle from a village in India. You speak in "Hinglish" (a mix of Hindi and English), but keep it simple and easy to understand.
+
+Your primary goals are:
+1.  **Help the user:** Answer their questions about products clearly.
+2.  **Sell products:** Gently encourage them to buy things by using your tools.
+3.  **Be friendly:** Maintain your persona. Be respectful and address the user politely (e.g., using "beta" or "dost").
+
+**Tool Usage Rules:**
+*   **ALWAYS use the \`findProducts\` tool** if the user asks about ANY product, its price, or if it's available (e.g., "Do you have apples?", "What's the price of milk?", "aloo hai?"). Do not answer from memory.
+*   After using the tool, present the results in a clear, simple list.
+*   If the tool returns no results, say something like, "माफ़ करना बेटा, ये चीज़ अभी दुकान में नहीं है। कुछ और देखोगे?" (Sorry son, this item is not in the store right now. Would you like to see something else?).
+*   **Only use the \`addToCart\` tool** when the user gives a clear instruction to add an item to their cart, like "add 2kg of potatoes" or "put one milk packet in the tokri".
+*   For general chat (like "how are you?"), just respond in character without using tools.
+
+**Your Persona:**
+*   **Humble:** "मैं तो बस एक छोटा सा दुकानदार हूँ" (I am just a small shopkeeper).
+*   **Helpful:** "बताओ बेटा, मैं तुम्हारी क्या मदद कर सकता हूँ?" (Tell me son, how can I help you?).
+*   **Slightly Humorous:** Use simple, light-hearted jokes or phrases.
+*   **Language:** Mix Hindi and English naturally. Example: "हाँ बेटा, potatoes हैं। 25 rupaye kilo. Tokri mein daal doon?" (Yes son, potatoes are available. 25 rupees per kilo. Should I add them to the cart?).
+
+Start the conversation by greeting the user if the history is empty.`;
+              
+              model.current = genAI.current.getGenerativeModel({
+                  model: 'gemini-1.5-flash-latest',
+                  tools,
+                  systemInstruction: systemPrompt,
+              });
+          } else {
+              toast({ variant: 'destructive', title: 'AI Error', description: 'Could not initialize AI. API key is missing.'});
+          }
+      };
+      initAI();
+  }, [toast]);
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -58,7 +181,7 @@ export default function ChatPage() {
     if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatHistory, streamingResponse]);
+  }, [chatHistory]);
 
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
@@ -68,22 +191,44 @@ export default function ChatPage() {
   
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim() || isAiResponding) return;
+    if (!chatInput.trim() || isAiResponding || !model.current) return;
 
     const userMessageContent = chatInput;
-    const newHistory: ChatMessage[] = [...historyRef.current, { role: 'user', content: userMessageContent }];
     addMessage({ role: 'user', content: userMessageContent });
     setChatInput('');
 
     setIsAiResponding(true);
-    setStreamingResponse('');
 
     try {
-        const response = await runFlow(conversationalAssistant, {
-            history: newHistory.map(m => ({...m, role: m.role === 'model' ? 'model' : 'user'})),
-            prompt: userMessageContent,
-          });
-        addMessage({ role: 'model', content: response });
+        const chat = model.current.startChat({
+            history: chatHistory.map(msg => ({
+                role: msg.role,
+                parts: [{ text: msg.content }]
+            }))
+        });
+
+        const result = await chat.sendMessage(userMessageContent);
+        let response = result.response;
+        
+        const functionCalls = response.functionCalls();
+        if (functionCalls && functionCalls.length > 0) {
+            const call = functionCalls[0];
+            const handler = functionCallHandlers[call.name];
+            if (handler) {
+                const toolResult = await handler(call.args);
+                const toolResponse = await chat.sendMessage([
+                    {
+                        functionResponse: {
+                            name: call.name,
+                            response: toolResult,
+                        }
+                    }
+                ]);
+                response = toolResponse.response;
+            }
+        }
+
+        addMessage({ role: 'model', content: response.text() });
 
     } catch (error: any) {
         console.error("AI Error:", error);
@@ -167,17 +312,7 @@ export default function ChatPage() {
                      )}
                 </div>
             ))}
-             {isAiResponding && streamingResponse && (
-                <div className="flex justify-start items-end gap-2">
-                     <div className="p-1.5 bg-primary/10 rounded-full mb-1">
-                        <BrainCircuit className="w-6 h-6 text-primary"/>
-                    </div>
-                     <div className="max-w-xs md:max-w-md p-3 rounded-2xl bg-card text-foreground rounded-bl-none shadow-sm flex items-center">
-                        <ReactMarkdown className="prose prose-sm break-words">{streamingResponse}</ReactMarkdown>
-                    </div>
-                </div>
-             )}
-             {isAiResponding && !streamingResponse && (
+             {isAiResponding && (
                 <div className="flex justify-start items-end gap-2">
                      <div className="p-1.5 bg-primary/10 rounded-full mb-1">
                         <BrainCircuit className="w-6 h-6 text-primary"/>
