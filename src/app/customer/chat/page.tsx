@@ -127,23 +127,21 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     if (!chatInput.trim() || !chatModel.current) return;
 
     const userMessageContent = chatInput;
+    const currentChatHistory = [...chatHistory, { role: 'user', content: userMessageContent }];
+
     addMessage({ role: 'user', content: userMessageContent });
+    addMessage({ role: 'model', content: '' }); // Placeholder for AI response
     setChatInput('');
     setIsAiResponding(true);
-    addMessage({ role: 'model', content: '' }); // Placeholder for AI response
 
     try {
-        const historyForAI = chatHistory
+        const historyForAI = currentChatHistory
             .filter(msg => msg.content.trim() !== '') // Remove empty placeholders
             .map(msg => ({
                 role: msg.role as 'user' | 'model',
                 parts: [{ text: msg.content }]
             }));
         
-        // Add the current user message to the history for the AI
-        historyForAI.push({ role: 'user', parts: [{ text: userMessageContent }] });
-
-        // Ensure the very first message sent to the API is from the user
         if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
             historyForAI.shift();
         }
@@ -175,16 +173,16 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     } catch (error: any) {
         console.error("AI Error:", error);
         
-        // Remove the empty AI placeholder message from history
         setHistory(prev => prev.slice(0, -1)); 
+        setHistory(prev => prev.slice(0, -1));
         
-        // Restore user input so they don't have to type it again
         setChatInput(userMessageContent);
         
         if (error.message?.includes("503") || error.message?.includes("overloaded")) {
              toast({ variant: 'destructive', title: 'AI Busy', description: "रामू काका अभी बहुत व्यस्त हैं, कृपया कुछ क्षण बाद फिर से प्रयास करें।" });
         } else if (error.message?.includes("should be with role 'user'")) {
              toast({ variant: 'destructive', title: 'AI Error', description: "Sorry, I got a bit confused. Could you please send your message again?" });
+             handleClearChat(); // Clear chat on this specific error to reset
         } else {
             toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue.' });
         }
@@ -312,3 +310,5 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     </div>
   )
 }
+
+    
