@@ -155,17 +155,16 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         const response = result.response;
         const responseText = response.text();
         
-        // Add a new empty message for the AI response
         addMessage({ role: 'model', content: '' });
 
         let i = 0;
         typingIntervalRef.current = setInterval(() => {
             if (i < responseText.length) {
-                setHistory(prev => {
+                 setHistory(prev => {
                     const newHistory = [...prev];
                     const lastMessage = newHistory[newHistory.length - 1];
                     if (lastMessage && lastMessage.role === 'model') {
-                        lastMessage.content += responseText[i];
+                        lastMessage.content = responseText.substring(0, i + 1);
                     }
                     return newHistory;
                 });
