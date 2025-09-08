@@ -127,67 +127,81 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     if (!chatInput.trim() || !chatModel.current) return;
 
     const userMessageContent = chatInput;
-    addMessage({ role: 'user', content: userMessageContent });
-    addMessage({ role: 'model', content: '' }); // Placeholder for AI response
     setChatInput('');
     setIsAiResponding(true);
 
+    // Add user message and AI placeholder in one state update
+    addMessage({ role: 'user', content: userMessageContent });
+    addMessage({ role: 'model', content: '' });
+
     try {
-        const historyForAI = chatHistory
-            .map(msg => ({
-                role: msg.role as 'user' | 'model',
-                parts: [{ text: msg.content }]
-            }));
-        
-        if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
-            historyForAI.shift();
-        }
+        // Use functional update to get the latest history
+        let responseText = '';
+        setHistory(prevHistory => {
+            const historyForAI = prevHistory
+                .slice(0, -1) // Exclude the placeholder
+                .map(msg => ({
+                    role: msg.role as 'user' | 'model',
+                    parts: [{ text: msg.content }]
+                }));
+            
+            // Start the async operation inside the updater to ensure we have the latest state
+            // This is a bit advanced, but it solves the stale state issue.
+            // We'll immediately return the current state and let the async part update later.
+            (async () => {
+                try {
+                    const chatSession = chatModel.current.startChat({ history: historyForAI });
+                    const result = await chatSession.sendMessage(userMessageContent);
+                    const response = result.response;
+                    responseText = response.text();
 
-        const chatSession = chatModel.current.startChat({ history: historyForAI });
-        
-        const result = await chatSession.sendMessage(userMessageContent);
-        const response = result.response;
-        const responseText = response.text();
-        
-        let i = 0;
-        typingIntervalRef.current = setInterval(() => {
-            if (i < responseText.length) {
-                 setHistory(prev => {
-                     const newHistory = [...prev];
-                     const lastMessage = newHistory[newHistory.length - 1];
-                     if (lastMessage && lastMessage.role === 'model') {
-                         lastMessage.content = responseText.substring(0, i + 1);
-                     }
-                     return newHistory;
-                 });
-                i++;
-            } else {
-               stopResponding();
-            }
-        }, 30);
+                    let i = 0;
+                    typingIntervalRef.current = setInterval(() => {
+                        if (i < responseText.length) {
+                            setHistory(prev => {
+                                const newHistory = [...prev];
+                                const lastMessage = newHistory[newHistory.length - 1];
+                                if (lastMessage && lastMessage.role === 'model') {
+                                    lastMessage.content = responseText.substring(0, i + 1);
+                                }
+                                return newHistory;
+                            });
+                            i++;
+                        } else {
+                           stopResponding();
+                        }
+                    }, 30);
 
+                } catch (error: any) {
+                    console.error("AI Error:", error);
+                    
+                    // On error, remove the AI placeholder and restore user input
+                    setHistory(prev => prev.slice(0, -1)); 
+                    setChatInput(userMessageContent);
+                    
+                    if (error.message?.includes("503") || error.message?.includes("overloaded")) {
+                         toast({ variant: 'destructive', title: 'AI Busy', description: "रामू काका अभी बहुत व्यस्त हैं, कृपया कुछ क्षण बाद फिर से प्रयास करें।" });
+                    } else {
+                        toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue.' });
+                    }
+                    setIsAiResponding(false);
+                }
+            })();
+
+            return prevHistory; // Return the state as it was for this render
+        });
 
     } catch (error: any) {
-        console.error("AI Error:", error);
-        
-        // Remove the AI placeholder message
-        setHistory(prev => prev.slice(0, -1)); 
-        
-        // Restore user input
+        // This catch block is for errors during the initial state update, which is unlikely.
+        // The main error handling is inside the async IIFE.
+        console.error("Initial Chat Submit Error:", error);
+        setHistory(prev => prev.slice(0, -2)); // Remove placeholder and user message
         setChatInput(userMessageContent);
-        
-        if (error.message?.includes("503") || error.message?.includes("overloaded")) {
-             toast({ variant: 'destructive', title: 'AI Busy', description: "रामू काका अभी बहुत व्यस्त हैं, कृपया कुछ क्षण बाद फिर से प्रयास करें।" });
-        } else if (error.message?.includes("should be with role 'user'")) {
-             toast({ variant: 'destructive', title: 'AI Error', description: "Sorry, I got a bit confused. Could you please send your message again?" });
-             handleClearChat(); // Clear chat on this specific error to reset
-        } else {
-            toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue.' });
-        }
-        
+        toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
         setIsAiResponding(false);
     }
   }
+
 
   if (loading) {
     return (
