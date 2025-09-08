@@ -216,9 +216,6 @@ Start the conversation by greeting the user if the history is empty.
               parts: [{ text: systemPrompt }]
             },
           });
-          if (chatHistory.length === 0) {
-            addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
-          }
           setIsModelReady(true);
         } else {
           throw new Error('API key is missing.');
@@ -230,6 +227,10 @@ Start the conversation by greeting the user if the history is empty.
       }
     };
     initAI();
+
+    if (chatHistory.length === 0) {
+        addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -339,7 +340,7 @@ Start the conversation by greeting the user if the history is empty.
     );
   }
 
-  const isSendDisabled = !chatInput.trim() || isAiResponding || !isModelReady;
+  const isSendDisabled = isAiResponding || !isModelReady;
 
   return (
     <div className="flex flex-col h-screen bg-muted/30">
@@ -427,12 +428,14 @@ Start the conversation by greeting the user if the history is empty.
                     className="flex-grow h-11 text-base"
                     disabled={isSendDisabled}
                 />
-                <Button type="submit" size="icon" disabled={isSendDisabled} className="h-11 w-11">
-                    {isAiResponding || !isModelReady ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5"/>}
+                <Button type="submit" size="icon" disabled={isSendDisabled || !chatInput.trim()} className="h-11 w-11">
+                    {isAiResponding ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5"/>}
                 </Button>
             </form>
         </footer>
     </div>
   )
 }
+    
+
     
