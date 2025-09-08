@@ -39,11 +39,11 @@ const findProducts = async (args: { query: string }): Promise<any> => {
     const matchedProducts = allProducts.filter(product => {
         const productName = product.name.toLowerCase();
         const keywords = product.keywords?.map(k => k.toLowerCase()) || [];
-        const category = product.category.toLowerCase();
+        const category = product.category ? product.category.toLowerCase() : '';
 
         return searchTerms.some(term => 
             productName.includes(term) || 
-            category.includes(term) ||
+            (category && category.includes(term)) ||
             keywords.some(kw => kw.includes(term))
         );
     }).slice(0, 5); // Return top 5 matches
