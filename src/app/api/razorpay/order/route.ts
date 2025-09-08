@@ -6,41 +6,23 @@ import { db } from '@/lib/firebase';
 
 export const dynamic = 'force-dynamic';
 
-let keyCache: { key_id: string; key_secret: string } | null = null;
-
-async function getRazorpayKeys() {
-  // Simple in-memory cache for the duration of the serverless function execution
-  if (keyCache) {
-    return keyCache;
-  }
+export async function POST(req: NextRequest) {
   try {
     const configDocRef = doc(db, 'secure_configs', 'api_keys');
     const docSnap = await getDoc(configDocRef);
 
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      if (data.razorpay_key_id && data.razorpay_key_secret) {
-        keyCache = {
-          key_id: data.razorpay_key_id,
-          key_secret: data.razorpay_key_secret,
-        };
-        return keyCache;
-      }
+    if (!docSnap.exists()) {
+        throw new Error('API key document not found in Firestore.');
     }
-    throw new Error('Razorpay keys not found in Firestore.');
-  } catch (error) {
-    console.error('Error fetching Razorpay keys from Firestore:', error);
-    throw error; // Re-throw the error to be caught by the main handler
-  }
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const { key_id, key_secret } = await getRazorpayKeys();
+    
+    const keys = docSnap.data();
+    if (!keys.razorpay_key_id || !keys.razorpay_key_secret) {
+        throw new Error('Razorpay keys not found in Firestore document.');
+    }
 
     const razorpay = new Razorpay({
-      key_id: key_id,
-      key_secret: key_secret,
+      key_id: keys.razorpay_key_id,
+      key_secret: keys.razorpay_key_secret,
     });
     
     const { amount } = await req.json();
