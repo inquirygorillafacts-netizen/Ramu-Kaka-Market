@@ -60,7 +60,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     if (apiKey) {
       genAI.current = new GoogleGenerativeAI(apiKey);
       chatModel.current = genAI.current.getGenerativeModel({
-        model: 'gemini-pro',
+        model: 'gemini-2.5-flash',
         systemInstruction: {
           role: 'model',
           parts: [{ text: systemPrompt }],
