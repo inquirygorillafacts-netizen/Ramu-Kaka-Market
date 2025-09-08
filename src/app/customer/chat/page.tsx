@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile } from '@/lib/types';
-import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2, Square, MessageSquare } from 'lucide-react';
+import { Loader2, Send, BrainCircuit, ArrowLeft, Square } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -102,10 +102,6 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
 
   const getInitials = (name: string = "") => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
-  const handleClearChat = () => {
-    setHistory([]);
-  };
-  
   const stopResponding = () => {
     if (typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
@@ -130,24 +126,21 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     setChatInput('');
     setIsAiResponding(true);
 
-    // Add user message and AI placeholder
+    const newHistoryWithUserMessage = [...chatHistory, { role: 'user' as 'user', content: userMessageContent }];
     addMessage({ role: 'user', content: userMessageContent });
     addMessage({ role: 'model', content: '' });
 
     try {
-        const currentHistory = [...chatHistory, { role: 'user', content: userMessageContent }];
-        
-        let historyForAI = currentHistory.map(msg => ({
+        let historyForAI = newHistoryWithUserMessage.map(msg => ({
             role: msg.role as 'user' | 'model',
             parts: [{ text: msg.content }]
         }));
 
-        // Gemini requires the first message to be from a user.
         if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
             historyForAI = historyForAI.slice(1);
         }
 
-        const chatSession = chatModel.current.startChat({ history: historyForAI });
+        const chatSession = chatModel.current.startChat({ history: historyForAI.slice(0, -1) });
         const result = await chatSession.sendMessage(userMessageContent);
         const response = result.response;
         const responseText = response.text();
@@ -172,7 +165,6 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     } catch (error: any) {
         console.error("AI Error:", error);
         
-        // Remove the AI placeholder on error
         setHistory(prev => prev.slice(0, -1));
         
         if (error.message?.includes("503") || error.message?.includes("overloaded")) {
@@ -181,7 +173,6 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
             toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue.' });
         }
         
-        // Restore user input and reset responding state
         setChatInput(userMessageContent);
         setIsAiResponding(false);
     }
@@ -219,54 +210,35 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                   </p>
               </div>
             </div>
-             <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Trash2 className="w-5 h-5 text-destructive" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Clear Chat History?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete your conversation with Ramu Kaka from this device. Are you sure?
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleClearChat} className="bg-destructive hover:bg-destructive/90">Clear</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
         </header>
 
         <main ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6">
-            {chatHistory.map((msg, index) => (
-              <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {msg.role === 'model' && (
-                      <div className="p-1.5 bg-primary/10 rounded-full mb-1 self-start">
-                          <BrainCircuit className="w-6 h-6 text-primary"/>
-                      </div>
+          {chatHistory.map((msg, index) => (
+            <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role === 'model' && (
+                    <div className="p-1.5 bg-primary/10 rounded-full mb-1 self-start">
+                        <BrainCircuit className="w-6 h-6 text-primary"/>
+                    </div>
+                )}
+                <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
+                  {isAiResponding && msg.role === 'model' && msg.content === '' && index === chatHistory.length - 1 ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                      <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                      <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
+                    </div>
+                  ) : (
+                    <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
                   )}
-                  <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
-                    {isAiResponding && msg.role === 'model' && msg.content === '' && index === chatHistory.length - 1 ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                        <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                        <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
-                      </div>
-                    ) : (
-                      <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
-                    )}
-                  </div>
-                  {msg.role === 'user' && (
-                      <Avatar className="w-9 h-9 mb-1">
-                          <AvatarImage src={profile.photoUrl || ''} />
-                          <AvatarFallback>{getInitials(profile.name || '')}</AvatarFallback>
-                      </Avatar>
-                  )}
-              </div>
-            ))}
+                </div>
+                {msg.role === 'user' && (
+                    <Avatar className="w-9 h-9 mb-1">
+                        <AvatarImage src={profile.photoUrl || ''} />
+                        <AvatarFallback>{getInitials(profile.name || '')}</AvatarFallback>
+                    </Avatar>
+                )}
+            </div>
+          ))}
         </main>
 
         <footer className="p-3 border-t bg-card space-y-2">
