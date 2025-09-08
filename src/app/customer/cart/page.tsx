@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Product, CartItem, UserProfile } from '@/lib/types';
-import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon, Gift, CreditCard, Wallet, Globe, Home, Hash, Lightbulb, MessageSquare } from 'lucide-react';
+import { Loader2, ShoppingBasket, Trash2, X, AlertTriangle, MapPin, Phone, User as UserIcon, Gift, CreditCard, Wallet, Globe, Home, Hash, Lightbulb, MessageSquare, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -23,8 +23,9 @@ import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 declare const Razorpay: any;
 
@@ -53,6 +54,9 @@ async function getRazorpayKeys() {
 
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
   const [profile, setProfile] = useState<Partial<UserProfile>>({});
   const [orderData, setOrderData] = useState({ name: '', mobile: '', address: '', pincode: '', village: '', mapLat: '', mapLng: '', paymentMethod: 'Online' as 'COD' | 'Online'});
   const [loading, setLoading] = useState(true);
@@ -64,7 +68,54 @@ export default function CartPage() {
   const [isCodConfirmOpen, setIsCodConfirmOpen] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+
+  const suggestionGenAI = useRef<GoogleGenerativeAI | null>(null);
+  const suggestionModel = useRef<any | null>(null);
   
+  const suggestionSystemPrompt = `
+You are a very smart and persuasive sales assistant AI for an online grocery store called "Ramu Kaka Market". Your only goal is to increase the cart value by giving highly relevant and emotionally appealing suggestions.
+
+**Your Task:**
+You will be given a list of items currently in the user's cart and a list of all products available in the store.
+Based on this, you must generate a short, friendly, and enticing suggestion in HINDI to encourage the user to buy more.
+
+**Reasoning Process:**
+1.  **Analyze the Cart:** What kind of meal is the user preparing? Are they buying vegetables for a curry? Fruits for a salad? Daily essentials?
+2.  **Find Perfect Pairings:** Look through the list of all available products. Find 1-2 items that perfectly complement what's already in the cart.
+    *   If they have vegetables like onions and tomatoes, suggest "paneer" to make "shahi paneer".
+    *   If they have bread, suggest "butter" or "jam".
+    *   If they have fruits, suggest "yogurt" to make a "fruit raita".
+    *   If they have only one type of item (e.g., only vegetables), suggest another category, like "Don't forget some fresh fruits for dessert!".
+3.  **Craft the Message:**
+    *   **Language:** Must be in conversational HINDI.
+    *   **Tone:** Friendly, smart, and slightly emotional. Make it sound like a delicious idea.
+    *   **Format:** Do not use lists or bullet points. Just a simple, persuasive paragraph. Keep it short and impactful.
+    *   **Example:** If cart has potatoes and cauliflower, a great suggestion would be: "वाह! आलू-गोभी की सब्ज़ी का तो मज़ा ही कुछ और है। इसके साथ अगर आप हमारी ताज़ा दही भी ले लेंगे, तो पराठों के साथ एक शाही दावत हो जाएगी!"
+
+**STRICT RULE:** Only suggest products that are in the "all available products" list. Do not hallucinate products.
+`;
+
+ useEffect(() => {
+    const initSuggestionAI = async () => {
+        try {
+            const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+            if (apiKey) {
+                suggestionGenAI.current = new GoogleGenerativeAI(apiKey);
+                suggestionModel.current = suggestionGenAI.current.getGenerativeModel({
+                    model: 'gemini-1.5-flash-latest',
+                    systemInstruction: suggestionSystemPrompt,
+                });
+            } else {
+                console.error("Suggestion AI: API key is missing.");
+            }
+        } catch (error) {
+            console.error("Suggestion AI Init Error:", error);
+        }
+    };
+    initSuggestionAI();
+}, [suggestionSystemPrompt]);
+
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
         if (user) {
@@ -78,6 +129,12 @@ export default function CartPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    // Fetch all products for suggestion logic
+    const productsQuery = query(collection(db, "products"));
+    const productsSnapshot = await getDocs(productsQuery);
+    const productsList = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+    setAllProducts(productsList);
+
     const savedCart = localStorage.getItem('ramukaka_cart');
     const parsedCart: CartItem[] = savedCart ? JSON.parse(savedCart) : [];
     setCart(parsedCart);
@@ -123,9 +180,41 @@ export default function CartPage() {
       loadData();
   }, [loadData]);
 
+
+  useEffect(() => {
+    const generateSuggestion = async () => {
+        if (cart.length > 0 && allProducts.length > 0 && suggestionModel.current && !suggestion) {
+            setIsSuggestionLoading(true);
+            try {
+                const cartItemsNames = cart.map(item => item.name).join(', ');
+                const allProductsNames = allProducts.map(p => p.name).join(', ');
+                
+                const prompt = `
+                    User's Cart: ${cartItemsNames}
+                    All Available Products: ${allProductsNames}
+                `;
+
+                const result = await suggestionModel.current.generateContent(prompt);
+                const response = await result.response;
+                setSuggestion(response.text());
+
+            } catch (error) {
+                console.error("Error generating suggestion:", error);
+                setSuggestion(null); // Don't show suggestion on error
+            } finally {
+                setIsSuggestionLoading(false);
+            }
+        }
+    };
+
+    generateSuggestion();
+  }, [cart, allProducts, suggestion]);
+
   const updateCart = (newCart: CartItem[]) => {
     setCart(newCart);
     localStorage.setItem('ramukaka_cart', JSON.stringify(newCart));
+    // Reset suggestion when cart changes
+    setSuggestion(null);
   };
 
   const handleQuantityChange = (productId: string, quantity: number) => {
@@ -368,6 +457,27 @@ export default function CartPage() {
                     </div>
                 ))}
             </div>
+
+            {(isSuggestionLoading || suggestion) && (
+                 <Card className="bg-primary/5 border-primary/20">
+                    <CardContent className="p-4 flex items-start gap-4">
+                        <div className="p-2 bg-primary/10 rounded-full">
+                            <Lightbulb className="w-6 h-6 text-primary"/>
+                        </div>
+                        <div className="flex-1 space-y-1">
+                            <CardTitle className="text-base text-primary">एक छोटा सा सुझाव!</CardTitle>
+                             {isSuggestionLoading ? (
+                                <div className="space-y-2">
+                                    <div className="h-4 bg-muted-foreground/10 rounded-md w-full animate-pulse"></div>
+                                    <div className="h-4 bg-muted-foreground/10 rounded-md w-2/3 animate-pulse"></div>
+                                </div>
+                             ) : (
+                                <p className="text-sm text-foreground/90">{suggestion}</p>
+                             )}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
             
             <Button variant="outline" className="w-full" asChild>
                 <Link href="/customer/chat">
