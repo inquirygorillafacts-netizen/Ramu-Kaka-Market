@@ -5,14 +5,13 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { UserProfile } from '@/lib/types';
+import { UserProfile, ChatMessage } from '@/lib/types';
 import { Loader2, Send, BrainCircuit, ArrowLeft, Square } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { doc, getDoc } from 'firebase/firestore';
-import { useChatHistory } from '@/hooks/use-chat-history';
 import ReactMarkdown from 'react-markdown';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -24,7 +23,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
-  const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -120,14 +119,13 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     if (!chatInput.trim() || isAiResponding || !chatModel.current) return;
 
     const userMessageContent = chatInput;
-    
-    // Add user message and AI placeholder immediately
-    const newHistoryWithUserAndPlaceholder = [
+    const newHistoryWithUserAndPlaceholder: ChatMessage[] = [
         ...chatHistory,
-        { role: 'user' as const, content: userMessageContent },
-        { role: 'model' as const, content: '' }
+        { role: 'user', content: userMessageContent },
+        { role: 'model', content: '' } // AI placeholder
     ];
-    setHistory(newHistoryWithUserAndPlaceholder);
+
+    setChatHistory(newHistoryWithUserAndPlaceholder);
     setChatInput('');
     setIsAiResponding(true);
 
@@ -136,7 +134,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
             .slice(0, -1) // Remove the AI placeholder for the API call
             .filter(msg => msg.content)
             .map(msg => ({
-                role: msg.role as 'user' | 'model',
+                role: msg.role,
                 parts: [{ text: msg.content }]
             }));
 
@@ -148,7 +146,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         let i = 0;
         typingIntervalRef.current = setInterval(() => {
             if (i < responseText.length) {
-                setHistory(prev => {
+                setChatHistory(prev => {
                     const newHistory = [...prev];
                     const lastMessage = newHistory[newHistory.length - 1];
                     if (lastMessage && lastMessage.role === 'model') {
@@ -166,7 +164,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         console.error("AI Error:", error);
         
         // On error, remove only the AI's empty placeholder
-        setHistory(prev => prev.slice(0, -1)); 
+        setChatHistory(prev => prev.slice(0, -1)); 
         
         if (error.message?.includes("503") || error.message?.includes("overloaded")) {
              toast({ variant: 'destructive', title: 'AI Busy', description: "रामू काका अभी बहुत व्यस्त हैं, कृपया कुछ क्षण बाद फिर से प्रयास करें।" });
