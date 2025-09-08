@@ -25,8 +25,6 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import Link from 'next/link';
-import { runFlow } from '@genkit-ai/next/client';
-import { getCartRecommendations } from '@/ai/flows/get-cart-recommendations';
 
 declare const Razorpay: any;
 
@@ -43,34 +41,6 @@ export default function CartPage() {
   const [isCodConfirmOpen, setIsCodConfirmOpen] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-
-  const [recommendation, setRecommendation] = useState<string>('');
-  const [isAiThinking, setIsAiThinking] = useState(false);
-
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const fetchRecommendation = useCallback(async (currentCart: CartItem[], userProfile: Partial<UserProfile>) => {
-    if (currentCart.length === 0) {
-        setRecommendation('');
-        return;
-    }
-    setIsAiThinking(true);
-    setRecommendation('');
-
-    try {
-        const result = await runFlow(getCartRecommendations, {
-            userProfile: userProfile,
-            cart: currentCart,
-        });
-        setRecommendation(result);
-    } catch (error) {
-        console.error("Error fetching AI recommendation:", error);
-        // Do not show error toast to user, fail silently
-    } finally {
-        setIsAiThinking(false);
-    }
-  }, []);
-
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -124,11 +94,7 @@ export default function CartPage() {
         paymentMethod: 'Online'
     });
     setLoading(false);
-
-    if (parsedCart.length > 0) {
-      fetchRecommendation(parsedCart, finalProfile);
-    }
-  }, [fetchRecommendation]);
+  }, []);
 
   useEffect(() => {
       loadData();
@@ -138,13 +104,6 @@ export default function CartPage() {
   const updateCart = (newCart: CartItem[]) => {
     setCart(newCart);
     localStorage.setItem('ramukaka_cart', JSON.stringify(newCart));
-
-    if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-    }
-    debounceTimeoutRef.current = setTimeout(() => {
-        fetchRecommendation(newCart, profile);
-    }, 1500); // 1.5 second debounce
   };
 
   const handleQuantityChange = (productId: string, quantity: number) => {
@@ -366,22 +325,6 @@ export default function CartPage() {
                     </div>
                 ))}
             </div>
-
-            { isAiThinking ? (
-                 <div className="bg-card p-4 rounded-xl shadow-sm space-y-3 animate-pulse">
-                    <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 rounded-full bg-muted"></div>
-                         <div className='flex-1 space-y-2'>
-                            <div className="h-4 bg-muted rounded w-3/4"></div>
-                            <div className="h-3 bg-muted rounded w-1/2"></div>
-                         </div>
-                    </div>
-                </div>
-            ) : recommendation && (
-                 <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl shadow-sm space-y-2">
-                    <p className="text-sm text-primary-dark font-medium">{recommendation}</p>
-                </div>
-            )}
             
             <Button variant="outline" className="w-full" asChild>
                 <Link href="/customer/chat">
