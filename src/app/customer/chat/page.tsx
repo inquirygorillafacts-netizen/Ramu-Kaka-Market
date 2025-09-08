@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -140,12 +141,18 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     addMessage({ role: 'model', content: '...' }); // Placeholder for AI response
 
     try {
-        const limitedHistory = chatHistory.slice(-10).map(msg => ({
+        let historyForAI = chatHistory.slice(-10).map(msg => ({
             role: msg.role,
             parts: [{ text: msg.content }]
         }));
 
-        const chatSession = chatModel.current.startChat({ history: limitedHistory });
+        // The API requires the history to start with a "user" role.
+        // If the first message in our history is from the "model", we remove it.
+        if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
+            historyForAI.shift();
+        }
+
+        const chatSession = chatModel.current.startChat({ history: historyForAI });
         
         const result = await chatSession.sendMessage(userMessageContent);
         const response = result.response;
@@ -154,7 +161,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         setHistory(prev => {
             const newHistory = [...prev];
             const lastMessage = newHistory[newHistory.length - 1];
-            if (lastMessage && lastMessage.role === 'model') {
+            if (lastMessage && lastMessage.role === 'model' && lastMessage.content === '...') {
                 lastMessage.content = ''; // Clear placeholder
             }
             return newHistory;
@@ -181,7 +188,14 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     } catch (error: any) {
         console.error("AI Error:", error);
         toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue. Please try again later.' });
-        setHistory(prev => prev.slice(0, -1)); // Remove the placeholder
+        setHistory(prev => {
+          const newHistory = [...prev];
+          const lastMessage = newHistory[newHistory.length - 1];
+          if (lastMessage && lastMessage.role === 'model') {
+            newHistory.pop(); // Remove placeholder on error
+          }
+          return newHistory;
+        });
         addMessage({ role: 'model', content: 'माफ़ करना बेटा, मेरा दिमाग थोड़ा गरम हो गया है। आप थोड़ी देर बाद फिर से प्रयास करें।' });
         setIsAiResponding(false);
     }
@@ -291,3 +305,5 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     </div>
   )
 }
+
+    
