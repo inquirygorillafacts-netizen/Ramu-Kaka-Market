@@ -15,8 +15,8 @@
 // limitations under the License.
 
 import {genkit, type GenkitErrorCode, type GenkitError} from 'genkit';
-import {googleAI, type GoogleAIGeminiModel} from '@genkit-ai/googleai';
-import {firebase} from '@genkit-ai/firebase/plugin';
+import {googleAI} from '@genkit-ai/googleai';
+import {googleCloud} from '@genkit-ai/google-cloud';
 import {dotprompt} from '@genkit-ai/dotprompt';
 import {doc, getDoc} from 'firebase/firestore';
 import {db} from '@/lib/firebase';
@@ -60,7 +60,7 @@ export async function getGeminiApiKey(): Promise<string | null> {
 
 export const ai = genkit({
   plugins: [
-    firebase(),
+    googleCloud(),
     googleAI({
       apiKey: getGeminiApiKey,
     }),
