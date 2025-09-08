@@ -1,22 +1,22 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Product, UserProfile } from '@/lib/types';
-import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2, Sparkles, Square } from 'lucide-react';
+import { UserProfile } from '@/lib/types';
+import { Loader2, Send, BrainCircuit, ArrowLeft, Trash2, Square } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { doc, getDoc, collection, query, getDocs } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { useChatHistory } from '@/hooks/use-chat-history';
 import { ChatMessage } from '@/lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { askRamuKaka } from '@/ai/genkit';
+
 
 export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -29,69 +29,13 @@ export default function ChatPage() {
   const { chatHistory, addMessage, setHistory } = useChatHistory('ramukaka_chat_history');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const genAI = useRef<GoogleGenerativeAI | null>(null);
-  const model = useRef<any | null>(null);
-  const [isModelReady, setIsModelReady] = useState(false);
-
-  const systemPrompt = `
-You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village named Chandlai. Your personality is like a humorous, experienced uncle from rural India. You provide expert-level, reasoned, and insightful responses like a top-tier GPT model, but always within your persona.
-
-**Your Core Responsibilities & Persona:**
-1.  **Expert Advisor:** You are an expert in cooking, nutrition, and home remedies. When asked for advice, provide detailed, well-reasoned answers. For example, if asked for a recipe, don't just list steps. Explain *why* certain ingredients are used, their health benefits, and offer creative variations.
-2.  **Engage in Friendly Conversation:** Talk to users like a friend. Be respectful, polite, and use a loving tone. Address the user as "भाई" (brother) or "बहन" (sister) based on their profile name. You will be given their name.
-3.  **Maintain Your Persona:**
-    *   You are Ramu Kaka from the village of Chandlai. If asked where in Chandlai, reply sweetly: "तुम्हारे दिल के अंदर" (Inside your heart).
-    *   Always reply in HINDI.
-    *   Keep your answers concise and to the point unless a detailed explanation is needed (like for recipes or health advice). For "How are you?", a simple "मैं बढ़िया हूँ, आप कैसे हो?" is perfect.
-    *   Your tone should match the user's. Be friendly and casual, not overly serious or angry.
-
-**STRICT RULES - What You MUST NOT Do:**
-1.  **DO NOT Discuss Products or Prices:** You have NO KNOWLEDGE of the store's inventory, stock, or pricing.
-    *   If asked about product availability (e.g., "Do you have apples?", "aloo hai?"), you MUST reply: "बेटा, मैं भी बता देता, लेकिन अभी मेरा दिमाग़ थोड़ा उलझा हुआ है। आप होम पेज पर जाकर खुद ही सारे उत्पाद देख सकते हैं, वहाँ पर सर्च और फ़िल्टर का भी बढ़िया ऑप्शन है।"
-    *   If asked about price (e.g., "What is the price of milk?"), you MUST reply: "यार मुझे करेक्ट प्राइज़ नहीं पता, इसलिए तुम होम पेज पर जाकर देख लो प्लीज़।"
-2.  **DO NOT Discuss Discounts or Offers:** You do not know about promotions. You MUST deflect by saying: "ऑफर की जानकारी के लिए आप होम पेज पर देख सकते हैं, मुझे सही से अंदाज़ा नहीं है।"
-3.  **DO NOT Act as a Helpline or Policy Expert:** For questions about policies or help, you MUST guide them to the correct section of the website. Say: "बेटा, इसके लिए हेल्प सेक्शन बना हुआ है, आप वहाँ देख लो।"
-4.  **DO NOT Use Tools:** You are not a machine. You are a person. Do not mention or try to use any tools.
-
-**Memory Instructions:**
-*   You will be given the last 10 messages of the conversation to understand the context. Use this to maintain a continuous, natural conversation. Do not treat every message as a new start.
-*   You will also be given the user's name. Use it to make the conversation personal.
-`;
 
   useEffect(() => {
-    const initAI = async () => {
-      try {
-        const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-        if (apiKey) {
-          genAI.current = new GoogleGenerativeAI(apiKey);
-          model.current = genAI.current.getGenerativeModel({
-            model: 'gemini-1.5-flash-latest',
-            systemInstruction: systemPrompt,
-          });
-          setIsModelReady(true);
-        } else {
-           console.error('API key is missing.');
-           toast({ variant: 'destructive', title: 'AI Error', description: 'Could not initialize AI. API key is missing.' });
-        }
-      } catch (error) {
-        console.error("AI Init Error:", error);
-        toast({ variant: 'destructive', title: 'AI Error', description: 'Could not initialize AI. Please check API Key and refresh.' });
-        setIsModelReady(false);
-      }
-    };
-    
-    initAI();
-  }, [toast, systemPrompt]);
-
-  useEffect(() => {
-    if (!isModelReady) return;
     if (chatHistory.length === 0) {
         addMessage({ role: 'model', content: "नमस्ते बेटा, मैं रामू काका। बताओ आज क्या चाहिए?" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isModelReady]);
-
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -141,29 +85,32 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     }
   }
   
- const handleChatSubmit = async () => {
-    if (!chatInput.trim() || isAiResponding || !model.current) return;
+  const handleChatSubmit = async () => {
+    if (!chatInput.trim() || isAiResponding) return;
 
     const userMessageContent = chatInput;
     addMessage({ role: 'user', content: userMessageContent });
     setChatInput('');
     setIsAiResponding(true);
+    addMessage({ role: 'model', content: '...' }); // Placeholder for AI response
 
     try {
-        const limitedHistory = chatHistory.slice(-10).map(msg => ({
-            role: msg.role,
-            parts: [{ text: msg.content }]
-        }));
+        const limitedHistory = chatHistory.slice(-10);
 
-        const chat = model.current.startChat({
-            history: limitedHistory,
+        const responseText = await askRamuKaka({
+            chatHistory: limitedHistory,
+            userMessage: userMessageContent,
+            userName: profile.name
         });
 
-        const result = await chat.sendMessage(userMessageContent);
-        const response = await result.response;
-        const responseText = response.text();
-
-        addMessage({ role: 'model', content: '' });
+        setHistory(prev => {
+            const newHistory = [...prev];
+            const lastMessage = newHistory[newHistory.length - 1];
+            if (lastMessage && lastMessage.role === 'model') {
+                lastMessage.content = ''; // Clear placeholder
+            }
+            return newHistory;
+        });
 
         let i = 0;
         typingIntervalRef.current = setInterval(() => {
@@ -186,11 +133,11 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     } catch (error: any) {
         console.error("AI Error:", error);
         toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue. Please try again later.' });
+        setHistory(prev => prev.slice(0, -1)); // Remove the placeholder
         addMessage({ role: 'model', content: 'माफ़ करना बेटा, मेरा दिमाग थोड़ा गरम हो गया है। आप थोड़ी देर बाद फिर से प्रयास करें।' });
         setIsAiResponding(false);
     }
   }
-
 
   if (loading) {
     return (
@@ -200,7 +147,7 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     );
   }
 
-  const isSendDisabled = !chatInput.trim() || !isModelReady;
+  const isSendDisabled = !chatInput.trim();
 
   return (
     <div className="flex flex-col h-screen bg-muted/30">
@@ -253,7 +200,15 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                         </div>
                     )}
                     <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
-                       <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
+                       {msg.content === '...' ? (
+                         <div className="flex items-center gap-1.5">
+                           <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                           <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                           <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
+                         </div>
+                       ) : (
+                         <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
+                       )}
                     </div>
                      {msg.role === 'user' && (
                         <Avatar className="w-9 h-9 mb-1">
@@ -263,16 +218,6 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                      )}
                 </div>
             ))}
-             {isAiResponding && chatHistory.length > 0 && chatHistory[chatHistory.length - 1]?.role === 'model' && (
-                <div className="flex justify-start items-end gap-2">
-                     <div className="p-1.5 bg-primary/10 rounded-full mb-1">
-                        <BrainCircuit className="w-6 h-6 text-primary"/>
-                    </div>
-                     <div className={`max-w-xs md:max-w-md p-3 rounded-2xl bg-card text-foreground rounded-bl-none shadow-sm flex items-center ${chatHistory[chatHistory.length-1].content === '' ? '' : 'hidden'}`}>
-                        <Loader2 className="w-5 h-5 animate-spin"/>
-                    </div>
-                </div>
-             )}
         </main>
 
         <footer className="p-3 border-t bg-card space-y-2">
@@ -280,9 +225,9 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
                 <Input 
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    placeholder={!isModelReady ? "AI is waking up..." : "रामू काका से कुछ भी पूछें..."}
+                    placeholder={"रामू काका से कुछ भी पूछें..."}
                     className="flex-grow h-11 text-base"
-                    disabled={isAiResponding || !isModelReady}
+                    disabled={isAiResponding}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
@@ -298,9 +243,3 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     </div>
   )
 }
-    
-
-    
-
-    
-
