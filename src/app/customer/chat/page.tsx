@@ -305,3 +305,5 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     </div>
   )
 }
+
+    
