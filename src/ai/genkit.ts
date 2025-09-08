@@ -1,6 +1,6 @@
 
 import {genkit} from 'genkit';
-import {googleAI} from '@gen-ai/googleai';
+import {googleAI} from '@genkit-ai/googleai';
 import {getDoc, doc} from 'firebase/firestore';
 import {db} from '@/lib/firebase';
 
