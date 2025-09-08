@@ -130,74 +130,59 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
     setChatInput('');
     setIsAiResponding(true);
 
-    // Add user message and AI placeholder in one state update
+    // Add user message and AI placeholder
     addMessage({ role: 'user', content: userMessageContent });
     addMessage({ role: 'model', content: '' });
 
     try {
-        // Use functional update to get the latest history
-        let responseText = '';
-        setHistory(prevHistory => {
-            const historyForAI = prevHistory
-                .slice(0, -1) // Exclude the placeholder
-                .map(msg => ({
-                    role: msg.role as 'user' | 'model',
-                    parts: [{ text: msg.content }]
-                }));
-            
-            // Start the async operation inside the updater to ensure we have the latest state
-            // This is a bit advanced, but it solves the stale state issue.
-            // We'll immediately return the current state and let the async part update later.
-            (async () => {
-                try {
-                    const chatSession = chatModel.current.startChat({ history: historyForAI });
-                    const result = await chatSession.sendMessage(userMessageContent);
-                    const response = result.response;
-                    responseText = response.text();
+        const currentHistory = [...chatHistory, { role: 'user', content: userMessageContent }];
+        
+        let historyForAI = currentHistory.map(msg => ({
+            role: msg.role as 'user' | 'model',
+            parts: [{ text: msg.content }]
+        }));
 
-                    let i = 0;
-                    typingIntervalRef.current = setInterval(() => {
-                        if (i < responseText.length) {
-                            setHistory(prev => {
-                                const newHistory = [...prev];
-                                const lastMessage = newHistory[newHistory.length - 1];
-                                if (lastMessage && lastMessage.role === 'model') {
-                                    lastMessage.content = responseText.substring(0, i + 1);
-                                }
-                                return newHistory;
-                            });
-                            i++;
-                        } else {
-                           stopResponding();
-                        }
-                    }, 30);
+        // Gemini requires the first message to be from a user.
+        if (historyForAI.length > 0 && historyForAI[0].role === 'model') {
+            historyForAI = historyForAI.slice(1);
+        }
 
-                } catch (error: any) {
-                    console.error("AI Error:", error);
-                    
-                    // On error, remove the AI placeholder and restore user input
-                    setHistory(prev => prev.slice(0, -1)); 
-                    setChatInput(userMessageContent);
-                    
-                    if (error.message?.includes("503") || error.message?.includes("overloaded")) {
-                         toast({ variant: 'destructive', title: 'AI Busy', description: "रामू काका अभी बहुत व्यस्त हैं, कृपया कुछ क्षण बाद फिर से प्रयास करें।" });
-                    } else {
-                        toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue.' });
+        const chatSession = chatModel.current.startChat({ history: historyForAI });
+        const result = await chatSession.sendMessage(userMessageContent);
+        const response = result.response;
+        const responseText = response.text();
+
+        let i = 0;
+        typingIntervalRef.current = setInterval(() => {
+            if (i < responseText.length) {
+                setHistory(prev => {
+                    const newHistory = [...prev];
+                    const lastMessage = newHistory[newHistory.length - 1];
+                    if (lastMessage && lastMessage.role === 'model') {
+                        lastMessage.content = responseText.substring(0, i + 1);
                     }
-                    setIsAiResponding(false);
-                }
-            })();
-
-            return prevHistory; // Return the state as it was for this render
-        });
+                    return newHistory;
+                });
+                i++;
+            } else {
+                stopResponding();
+            }
+        }, 30);
 
     } catch (error: any) {
-        // This catch block is for errors during the initial state update, which is unlikely.
-        // The main error handling is inside the async IIFE.
-        console.error("Initial Chat Submit Error:", error);
-        setHistory(prev => prev.slice(0, -2)); // Remove placeholder and user message
+        console.error("AI Error:", error);
+        
+        // Remove the AI placeholder on error
+        setHistory(prev => prev.slice(0, -1));
+        
+        if (error.message?.includes("503") || error.message?.includes("overloaded")) {
+             toast({ variant: 'destructive', title: 'AI Busy', description: "रामू काका अभी बहुत व्यस्त हैं, कृपया कुछ क्षण बाद फिर से प्रयास करें।" });
+        } else {
+            toast({ variant: 'destructive', title: 'AI Error', description: 'Could not get a response from Ramu Kaka. It might be a quota issue.' });
+        }
+        
+        // Restore user input and reset responding state
         setChatInput(userMessageContent);
-        toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
         setIsAiResponding(false);
     }
   }
@@ -256,48 +241,32 @@ You are "Ramu Kaka", a friendly, wise, and helpful shopkeeper from a village nam
         </header>
 
         <main ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6">
-            {chatHistory.length > 0 ? (
-              chatHistory.map((msg, index) => (
-                  <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      {msg.role === 'model' && (
-                          <div className="p-1.5 bg-primary/10 rounded-full mb-1 self-start">
-                              <BrainCircuit className="w-6 h-6 text-primary"/>
-                          </div>
-                      )}
-                      <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
-                        {isAiResponding && msg.role === 'model' && msg.content === '' && index === chatHistory.length - 1 ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                            <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                            <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
-                          </div>
-                        ) : (
-                          <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
-                        )}
+            {chatHistory.map((msg, index) => (
+              <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {msg.role === 'model' && (
+                      <div className="p-1.5 bg-primary/10 rounded-full mb-1 self-start">
+                          <BrainCircuit className="w-6 h-6 text-primary"/>
                       </div>
-                      {msg.role === 'user' && (
-                          <Avatar className="w-9 h-9 mb-1">
-                              <AvatarImage src={profile.photoUrl || ''} />
-                              <AvatarFallback>{getInitials(profile.name || '')}</AvatarFallback>
-                          </Avatar>
-                      )}
+                  )}
+                  <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
+                    {isAiResponding && msg.role === 'model' && msg.content === '' && index === chatHistory.length - 1 ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                        <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                        <span className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
+                      </div>
+                    ) : (
+                      <ReactMarkdown className="prose prose-sm break-words">{msg.content}</ReactMarkdown>
+                    )}
                   </div>
-              ))
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground animate-fade-in-up">
-                  <Card className="p-8 shadow-lg border-primary/10">
-                      <CardContent className="flex flex-col items-center gap-4 p-0">
-                         <div className="p-4 bg-primary/10 rounded-full">
-                            <MessageSquare className="w-12 h-12 text-primary/80"/>
-                         </div>
-                         <div className="space-y-1">
-                            <h2 className="text-xl font-semibold text-foreground">यह चैट खाली है</h2>
-                            <p className="text-muted-foreground">कुछ तो बात करो!</p>
-                         </div>
-                      </CardContent>
-                  </Card>
+                  {msg.role === 'user' && (
+                      <Avatar className="w-9 h-9 mb-1">
+                          <AvatarImage src={profile.photoUrl || ''} />
+                          <AvatarFallback>{getInitials(profile.name || '')}</AvatarFallback>
+                      </Avatar>
+                  )}
               </div>
-            )}
+            ))}
         </main>
 
         <footer className="p-3 border-t bg-card space-y-2">
